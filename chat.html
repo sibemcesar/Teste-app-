@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat Movicel Completo</title>
+<style>
+  body,html {
+    margin:0; padding:0; height:100%;
+    font-family: Arial, sans-serif;
+    background: #fff;
+    color: #b3002d;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .overlay-animacao {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0,0,0,0.85) !important;
+    display: none !important;
+    justify-content: center !important;
+    align-items: center !important;
+    z-index: 99999 !important;
+    transition: opacity 0.4s ease !important;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .overlay-animacao.active {
+    display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  .spinner {
+    width: 60px;
+    height: 60px;
+    border: 6px solid #eee;
+    border-top-color: #b3002d;
+    border-radius: 50%;
+    animation: girar 1.2s linear infinite;
+  }
+  @keyframes girar {
+    to { transform: rotate(360deg); }
+  }
+  #app {
+    max-width: 480px;
+    margin: 0 auto;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    flex-shrink: 0;
+    background-color: #b3002d;
+    color: white;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0 16px;
+    box-sizing: border-box;
+  }
+  header button {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    user-select: none;
+    padding: 0 10px;
+  }
+  header button:active {
+    opacity: 0.7;
+  }
+  /* Hamburger estilo simples */
+  .hamburger {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    fill: white;
+    z-index: 3900;
+    transition: fill 0.2s;
+  }
+  .hamburger:hover {
+    fill: #ff5b5b;
+  }
+  /* Botão notificações direita */
+  .btn-notificacoes {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: 28px;
+    height: 28px;
+    z-index: 3900;
+    transition: fill 0.2s;
+  }
+  .btn-notificacoes svg {
+    width: 100%;
+    height: 100%;
+    stroke: white;
+    fill: none;
+  }
+  .btn-notificacoes:hover svg {
+    stroke: #ff5b5b;
+  }
+  /* Título centralizado */
+  .title {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: white;
+    user-select: none;
+  }
+  h1 {
+    text-align: center;
+    margin: 20px 0 10px;
+  }
+  #users, #chatOverlay {
+    width: 98%;
+    padding: 5px;
+    background: correntcolor;
+    box-sizing: border-box;
+  }
+  #usersListTitle {
+    background: #b3002d;
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 1.1em;
+    cursor: pointer;
+    width: calc(100% - 32px);
+    margin: 0 16px 16px;
+  }
+  #usersList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  #usersList li {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 8px 6px;
+    border-bottom: 1px solid #d87f9b;
+    user-select: none;
+  }
+  #usersList li:hover {
+    background: #f9d7df;
+  }
+  #usersList li span.email {
+    font-weight: bold;
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: #b3002d;
+  }
+  #usersList li span.online-indicator,
+  #usersList li span.nova-msg-indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 8px;
+  }
+  #usersList li span.online-indicator {
+    background: #0f0;
+    box-shadow: 0 0 5px #0f0;
+  }
+  #usersList li span.online-indicator.inativo {
+    background: #ccc;
+    box-shadow: none;
+  }
+  #usersList li span.nova-msg-indicator {
+    background: #0c0;
+    box-shadow: 0 0 6px #0c0;
+  }
+  #usersList li button {
+    background: #b3002d;
+    color: white;
+    border-radius: 8px;
+    padding: 6px 14px;
+    cursor: pointer;
+    user-select: none;
+    margin-left: 8px;
+  }
+  #usersList li button:hover {
+    background: #800018;
+  }
+  #userVisibilityControl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: bold;
+    color: #800018;
+    margin-left: 12px;
+    user-select: none;
+  }
+  #userVisibilityControl input {
+    cursor: pointer;
+  }
+  #btnLogout {
+    display:none;
+    background: #b3002d;
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 1.1em;
+    cursor: pointer;
+    width: calc(100% - 32px);
+    margin: 0 16px 16px;
+  }
+  #btnLogout:hover {
+    background: #800018;
+  }
+  #chatOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(179, 0, 45, 0.95);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+  }
+  #chatContainer {
+    background: #fff;
+    width: 100vw;
+    max-width: 480px;
+    height: 100vh;
+    max-height: 720px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;    
+        opacity 0.3s ease,
+        transform 0.3s ease;
+  }
+  #chatHeader {
+    position: sticky;
+      top: 0;
+      background: #bc0036;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      height: 56px;
+      padding: 0 16px;
+      font-size: 1.25em;
+      font-weight: bold;
+      font-family: Verdana, Arial, sans-serif;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      flex-shrink: 0;
+      user-select: none;
+      z-index: 4200; /* acima de tudo */
+      user-select: none;
+  }
+  #chatCloseBtn, #btnApagarConversa {
+    font-size: 1.0em;
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    padding: 0 6px;
+    margin-left: 4px;
+  }
+  #chatCloseBtn:hover, #btnApagarConversa:hover {
+    color: #ffa0a0;
+  }
+  #chatMessages {
+    flex-grow: 1;
+    background: #fae6eb;
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 1em;
+  }
+  .msg {
+    max-width: 75%;
+    padding: 12px 16px;
+    border-radius: 30px;
+    line-height: 1.3em;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+  .msg.sender {
+    background: #b3002d;
+    color: #fff;
+    margin-left: auto;
+    border-bottom-right-radius: 6px;
+  }
+  .msg.receiver {
+    background: #fff;
+    border: 1.5px solid #b3002d;
+    color: #b3002d;
+    margin-right: auto;
+    border-bottom-left-radius: 6px;
+  }
+  #chatFooter {
+    display: flex;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    border-top: 1.5px solid #b3002d;
+  }
+  #chatInput {
+    width: 70%;
+    flex-grow: 1;
+    border: 1.8px solid #b3002d;
+    border-radius: 30px;
+    padding: 2px 20px;
+    font-size: 1.1em;
+    outline: none;
+    box-sizing: border-box;
+  }
+  #sendBtn {
+    padding: 12px 24px;
+    background: #b3002d;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    font-weight: bold;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: background-color 0.25s;
+  }
+  #sendBtn:disabled {
+    background: #e89aa7;
+    cursor: default;
+  }
+ /* Botão com SVG no lado esquerdo */
+  .btn-voltar {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    width: 32px;
+    height: 32px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+</style>
+</head>
+<body>
+ <div id="overlay1" class="overlay-animacao" aria-hidden="true" style="display:none;">
+  <div class="spinner" aria-label="Carregando"></div>
+</div>
+<div id="app">
+  <header>
+    <!-- Hamburger Menu SVG -->
+    <button id="btnVoltar" onclick="window.location.href='index.html'" aria-label="Voltar">&#8592;</button>
+  <div class="title">Conversas</div>
+  </header>
+
+  <!-- Conteúdo principal vai aqui -->
+  <main style="flex-grow:1; background:#fae6eb; padding:16px;">
+  <section id="users" aria-label="Usuários Ativos" style="display:none;">
+    <div id="usersListTitle">Usuários Ativos</div>
+    <ul id="usersList" tabindex="0"></ul>
+    <button id="btnLogout" aria-label="Sair">Sair</button>
+  </section>
+</div>
+
+<div id="chatOverlay" role="dialog" aria-modal="true" aria-labelledby="chatTitle" style="display:none; justify-content:center; align-items:center;">
+  <div id="chatContainer" role="document">
+    <header id="chatHeader">
+       <button id="chatCloseBtn" aria-label="Fechar chat"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="1.5">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 15.75 3 12m0 0 3.75-3.75M3 12h18" />
+</svg>
+</button>
+      <div id="chatTitle">Chat</div>
+      <div>
+        <button id="btnApagarConversa" aria-label="Apagar conversa" title="Apagar conversa"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke-width="1.5" stroke="white" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+</svg>
+</button>
+         </div>
+    </header>
+    <main id="chatMessages" tabindex="0" aria-live="polite" aria-atomic="true"></main>
+    <footer id="chatFooter">
+      <input id="chatInput" type="text" aria-label="Mensagem" placeholder="Digite algo..." autocomplete="off" />
+      <button id="sendBtn" aria-label="Enviar mensagem" disabled><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke-width="1.5" stroke="white" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+</svg>
+</button>
+    </footer>
+    
+  </div>
+</div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+  import {
+    getDatabase,
+    ref,
+    set,
+    onValue,
+    query,
+    orderByChild,
+    limitToLast,
+    push,
+    update
+  } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCE_vGty5XsV1YqdCi49Ck2xJDSFq284wc",
+    authDomain: "cliente-movicel.firebaseapp.com",
+    databaseURL: "https://cliente-movicel-default-rtdb.firebaseio.com",
+    projectId: "cliente-movicel",
+    storageBucket: "cliente-movicel.firebasestorage.app",
+    messagingSenderId: "215414688375",
+    appId: "1:215414688375:web:2c7d20a0c03c4c0fcfd472",
+    measurementId: "G-7F1RGP9GHV",
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  const usersSection = document.getElementById("users");
+  const usersList = document.getElementById("usersList");
+  const btnLogout = document.getElementById("btnLogout");
+document.addEventListener('DOMContentLoaded', () => {
+  mostrarOverlay1(); // vai aparecer sozinho ao carregar
+});
+
+  const chatOverlay = document.getElementById("chatOverlay");
+  const chatTitle = document.getElementById("chatTitle");
+  const chatCloseBtn = document.getElementById("chatCloseBtn");
+  const btnApagarConversa = document.getElementById("btnApagarConversa");
+  const chatMessages = document.getElementById("chatMessages");
+  const chatInput = document.getElementById("chatInput");
+  const sendBtn = document.getElementById("sendBtn");
+
+  let usuarioAtual = null;
+  let destinatarioAtual = null;
+  let unsubscribeMensagensRecebidas = null;
+  let unsubscribeMensagensEnviadas = null;
+
+  async function atualizarUsuarioAtivo(user) {
+    if (!user) return;
+    const userRef = ref(db, `usuariosAtivos/${user.uid}`);
+    const snapshot = await new Promise((resolve) =>
+      onValue(userRef, (s) => resolve(s), { onlyOnce: true })
+    );
+    const curr = snapshot.val() || {};
+    await set(userRef, {
+      email: user.email,
+      ultimaAtividade: Date.now(),
+      privado: curr.privado || false,
+    });
+  }
+
+  async function atualizarPrivacidade(privado) {
+    if (!usuarioAtual) return;
+    const userRef = ref(db, `usuariosAtivos/${usuarioAtual.uid}`);
+    const snapshot = await new Promise((resolve) =>
+      onValue(userRef, (s) => resolve(s), { onlyOnce: true })
+    );
+    const curr = snapshot.val() || {};
+    await set(userRef, {
+      email: usuarioAtual.email,
+      ultimaAtividade: curr.ultimaAtividade || Date.now(),
+      privado,
+    });
+  }
+
+  async function atualizarListaUsuarios() {
+    const usersRef = query(
+      ref(db, "usuariosAtivos"),
+      orderByChild("ultimaAtividade"),
+      limitToLast(50)
+    );
+    const notiRef = ref(db, "notificacoesMensagens");
+    const [snapUsers, snapNoti] = await Promise.all([
+      new Promise((resolve) => onValue(usersRef, (s) => resolve(s), { onlyOnce: true })),
+      new Promise((resolve) => onValue(notiRef, (s) => resolve(s), { onlyOnce: true })),
+    ]);
+    const users = [];
+    snapUsers.forEach((c) => users.push({ ...c.val(), uid: c.key }));
+    users.sort((a, b) => b.ultimaAtividade - a.ultimaAtividade);
+    const notiData = snapNoti.val() || {};
+    usersList.innerHTML = "";
+    const visiveis = users.filter((u) => !u.privado);
+    if (visiveis.length === 0) {
+      usersList.innerHTML = "<li>Nenhum usuário ativo.</li>";
+      return;
+    }
+    visiveis.forEach((u) => {
+      if (usuarioAtual && u.uid === usuarioAtual.uid) return;
+      const li = document.createElement("li");
+      const ativo = Date.now() - u.ultimaAtividade < 5 * 60 * 1000;
+      const indicador = document.createElement("span");
+      indicador.className = "online-indicator";
+      indicador.style.backgroundColor = ativo ? "#0f0" : "#ccc";
+      indicador.title = ativo ? "Ativo" : "Inativo";
+      li.appendChild(indicador);
+
+      if (notiData[u.uid]) {
+        const novaMsg = document.createElement("span");
+        novaMsg.className = "nova-msg-indicator";
+        novaMsg.title = "Tem mensagens não lidas";
+        li.appendChild(novaMsg);
+      } else {
+        const espaco = document.createElement("span");
+        espaco.style.width = "14px";
+        espaco.style.marginRight = "8px";
+        li.appendChild(espaco);
+      }
+
+      const emailSpan = document.createElement("span");
+      emailSpan.className = "email";
+      emailSpan.textContent = u.email;
+      li.appendChild(emailSpan);
+
+      const btnChat = document.createElement("button");
+      btnChat.textContent = "Chat";
+      btnChat.setAttribute("aria-label", `Conversar com ${u.email}`);
+      btnChat.onclick = (e) => {
+        e.stopPropagation();
+        abrirChat(u);
+      };
+      li.appendChild(btnChat);
+
+      usersList.appendChild(li);
+    });
+
+    // No seu código, na hora de montar o checkbox:
+
+if (usuarioAtual) {
+  const u = users.find(x => x.uid === usuarioAtual.uid) || {};
+  const li = document.createElement("li");
+
+  // Indicador atividade
+  const ativo = Date.now() - (u.ultimaAtividade || 0) < 5 * 60 * 1000;
+  const indicador = document.createElement("span");
+  indicador.className = "online-indicator";
+  indicador.style.backgroundColor = ativo ? "#0f0" : "#ccc";
+  indicador.title = ativo ? "Ativo" : "Inativo";
+  li.appendChild(indicador);
+
+  const emailSpan = document.createElement("span");
+  emailSpan.className = "email";
+  emailSpan.textContent = usuarioAtual.email + " (Você)";
+  li.appendChild(emailSpan);
+
+  const label = document.createElement("label");
+  label.id = "userVisibilityControl";
+  label.title = "Ficar oculto na lista";
+  label.style.userSelect = "none";
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+
+  // Aqui carregamos localStorage primeiro para responder rápido
+  let visibilidadeLocal = localStorage.getItem("chat_visibilidade_oculto");
+  if (visibilidadeLocal === null) {
+    // Se não tem localStorage, usa valor do Firebase
+    checkbox.checked = !!u.privado;
+  } else {
+    // Use valor do localStorage (string 'true' ou 'false')
+    checkbox.checked = visibilidadeLocal === 'true';
+  }
+
+  checkbox.onchange = async (e) => {
+    const marcado = e.target.checked;
+
+    // Atualiza localStorage imediatamente
+    localStorage.setItem("chat_visibilidade_oculto", marcado ? "true" : "false");
+
+    // Atualiza Firebase
+    await atualizarPrivacidade(marcado);
+
+    // Atualiza lista para refletir alteração na visibilidade
+    await atualizarListaUsuarios();
+  };
+
+  label.appendChild(checkbox);
+  label.appendChild(document.createTextNode(" Oculto"));
+  li.appendChild(label);
+
+  usersList.appendChild(li);
+}
+
+  }
+
+  function escutarConversaCompleta() {
+    if (!usuarioAtual || !destinatarioAtual) return;
+
+    if (unsubscribeMensagensRecebidas) {
+      unsubscribeMensagensRecebidas();
+      unsubscribeMensagensRecebidas = null;
+    }
+    if (unsubscribeMensagensEnviadas) {
+      unsubscribeMensagensEnviadas();
+      unsubscribeMensagensEnviadas = null;
+    }
+
+    const refRecebidas = ref(db, `mensagensPara/${usuarioAtual.uid}`);
+    const refEnviadas = ref(db, `mensagensPara/${destinatarioAtual.uid}`);
+
+    let msgsRecebidas = [];
+    let msgsEnviadas = [];
+
+    function atualizarChat() {
+      const todas = [
+        ...msgsRecebidas.map((m) => ({ ...m, enviadaPorMim: false })),
+        ...msgsEnviadas.map((m) => ({ ...m, enviadaPorMim: true })),
+      ];
+      todas.sort((a, b) => a.timestamp - b.timestamp);
+      chatMessages.innerHTML = "";
+      if (todas.length === 0) {
+        chatMessages.innerHTML =
+          "<p style='color:#b3002d;text-align:center;'>Nenhuma mensagem.</p>";
+        return;
+      }
+      todas.forEach((m) => {
+        const div = document.createElement("div");
+        div.className = m.enviadaPorMim ? "msg sender" : "msg receiver";
+        const dt = new Date(m.timestamp);
+        div.innerHTML = `${m.texto}<br><small style="font-size:0.7em;color:#b3002d;">[${dt.toLocaleTimeString()}]</small>`;
+        chatMessages.appendChild(div);
+      });
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    unsubscribeMensagensRecebidas = onValue(refRecebidas, (snap) => {
+      msgsRecebidas = [];
+      snap.forEach((child) => {
+        const msg = child.val();
+        if (destinatarioAtual && msg.remetenteEmail === destinatarioAtual.email) {
+          msgsRecebidas.push(msg);
+        }
+      });
+      atualizarChat();
+    });
+    unsubscribeMensagensEnviadas = onValue(refEnviadas, (snap) => {
+      msgsEnviadas = [];
+      snap.forEach((child) => {
+        const msg = child.val();
+        if (usuarioAtual && msg.remetenteEmail === usuarioAtual.email) {
+          msgsEnviadas.push(msg);
+        }
+      });
+      atualizarChat();
+    });
+  }
+
+  async function abrirChat(user) {
+    destinatarioAtual = user;
+    chatTitle.textContent = `Conversando com ${user.email}`;
+    chatMessages.innerHTML = "";
+    chatOverlay.style.display = "flex";
+    chatInput.value = "";
+    sendBtn.disabled = true;
+    chatInput.focus();
+    const myNotiRef = ref(db, `notificacoesMensagens/${usuarioAtual.uid}`);
+    try {
+      await set(myNotiRef, null);
+    } catch (e) {
+      console.error("Erro ao limpar notificação:", e);
+    }
+    escutarConversaCompleta();
+  }
+
+  chatCloseBtn.onclick = () => {
+    chatOverlay.style.display = "none";
+    destinatarioAtual = null;
+    chatMessages.innerHTML = "";
+    if (unsubscribeMensagensRecebidas) {
+      unsubscribeMensagensRecebidas();
+      unsubscribeMensagensRecebidas = null;
+    }
+    if (unsubscribeMensagensEnviadas) {
+      unsubscribeMensagensEnviadas();
+      unsubscribeMensagensEnviadas = null;
+    }
+  };
+
+  btnApagarConversa.onclick = async () => {
+    if (!usuarioAtual || !destinatarioAtual) return;
+    if (
+      !confirm(
+        `Tem certeza que deseja apagar toda a conversa com ${destinatarioAtual.email}? Esta ação não pode ser desfeita.`
+      )
+    )
+      return;
+    try {
+      const refMinhas = ref(db, `mensagensPara/${usuarioAtual.uid}`);
+      const snapMinhas = await new Promise((resolve) =>
+        onValue(refMinhas, (s) => resolve(s), { onlyOnce: true })
+      );
+      const updatesMinhas = {};
+      snapMinhas.forEach((child) => {
+        const msg = child.val();
+        if (msg.remetenteEmail === destinatarioAtual.email)
+          updatesMinhas[child.key] = null;
+      });
+      const refDesti = ref(db, `mensagensPara/${destinatarioAtual.uid}`);
+      const snapDesti = await new Promise((resolve) =>
+        onValue(refDesti, (s) => resolve(s), { onlyOnce: true })
+      );
+      const updatesDesti = {};
+      snapDesti.forEach((child) => {
+        const msg = child.val();
+        if (msg.remetenteEmail === usuarioAtual.email)
+          updatesDesti[child.key] = null;
+      });
+      const promises = [];
+      if (Object.keys(updatesMinhas).length > 0)
+        promises.push(update(refMinhas, updatesMinhas));
+      if (Object.keys(updatesDesti).length > 0)
+        promises.push(update(refDesti, updatesDesti));
+      await Promise.all(promises);
+      chatMessages.innerHTML = "";
+      alert("Conversa apagada com sucesso.");
+    } catch (e) {
+      console.error("Erro apagando conversa:", e);
+      alert("Erro ao apagar conversa. Veja o console.");
+    }
+  };
+
+  chatInput.addEventListener("input", () => {
+    sendBtn.disabled = chatInput.value.trim() === "" || !destinatarioAtual;
+  });
+
+  sendBtn.addEventListener("click", async () => {
+    if (!usuarioAtual || !destinatarioAtual) return;
+    const texto = chatInput.value.trim();
+    if (!texto) return;
+    const refMsg = ref(db, `mensagensPara/${destinatarioAtual.uid}`);
+    const refNoti = ref(db, `notificacoesMensagens/${destinatarioAtual.uid}`);
+    try {
+      await push(refMsg, {
+        remetenteUid: usuarioAtual.uid,
+        remetenteEmail: usuarioAtual.email,
+        texto,
+        timestamp: Date.now(),
+      });
+      await set(refNoti, true);
+      chatInput.value = "";
+      sendBtn.disabled = true;
+      chatInput.focus();
+    } catch (e) {
+      console.error("Erro enviando mensagem:", e);
+      alert("Erro ao enviar mensagem. Veja o console para detalhes.");
+    }
+  });
+
+  btnLogout.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      chatOverlay.style.display = "none";
+      usersSection.style.display = "none";
+      destinatarioAtual = null;
+      if (unsubscribeMensagensRecebidas) {
+        unsubscribeMensagensRecebidas();
+        unsubscribeMensagensRecebidas = null;
+      }
+      if (unsubscribeMensagensEnviadas) {
+        unsubscribeMensagensEnviadas();
+        unsubscribeMensagensEnviadas = null;
+      }
+    } catch (e) {
+      console.error("Erro no logout:", e);
+    }
+  });
+
+  onAuthStateChanged(auth, async (user) => {
+    usuarioAtual = user;
+    if (user) {
+      usersSection.style.display = "block";
+      await atualizarUsuarioAtivo(user);
+      await atualizarListaUsuarios();
+    } else {
+      usersSection.style.display = "none";
+      chatOverlay.style.display = "none";
+      destinatarioAtual = null;
+      if (unsubscribeMensagensRecebidas) {
+        unsubscribeMensagensRecebidas();
+        unsubscribeMensagensRecebidas = null;
+      }
+      if (unsubscribeMensagensEnviadas) {
+        unsubscribeMensagensEnviadas();
+        unsubscribeMensagensEnviadas = null;
+      }
+      alert(
+        "Nenhuma conta Firebase ativa encontrada no navegador. Por favor, faça login em outro aplicativo que use Firebase Auth."
+      );
+    }
+  });
+</script>
+  <script>
+  (function(){
+    // Recupera o overlay ou cria se não existir (auto-inject)
+    function getOrCreateOverlay(){
+      let overlay = document.getElementById('overlay1');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'overlay1';
+        overlay.className = 'overlay-animacao';
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.style.display = 'none';
+
+        const spinner = document.createElement('div');
+        spinner.className = 'spinner';
+        spinner.setAttribute('aria-label', 'Carregando');
+        overlay.appendChild(spinner);
+
+        document.body.appendChild(overlay);
+      }
+      return overlay;
+    }
+
+    // Função para mostrar overlay com garantia de visibilidade e foco
+    window.mostrarOverlay1 = function(){
+      const overlay = getOrCreateOverlay();
+
+      // Forçar estilos para garantir visibilidade
+      overlay.style.display = 'flex';
+      overlay.classList.add('active');
+      overlay.setAttribute('aria-hidden', 'false');
+
+      // Salva o elemento com foco para depois restaurar
+      const focoAnterior = document.activeElement;
+
+      // Coloca foco no overlay para acessibilidade (evitar foco fora do overlay)
+      overlay.tabIndex = -1;
+      overlay.focus();
+
+      // Após 5 segundos, oculta o overlay de forma suave
+      setTimeout(() => {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+
+        // Restaura foco para o elemento anterior, se possível
+        if(focoAnterior && focoAnterior.focus){
+          focoAnterior.focus();
+        }
+      }, 5000);
+    };
+
+    // Função para esconder overlay no caso de querer ocultar antes do timeout
+    window.esconderOverlay1 = function(){
+      const overlay = getOrCreateOverlay();
+      overlay.classList.remove('active');
+      overlay.style.display = 'none';
+      overlay.setAttribute('aria-hidden', 'true');
+    };
+
+    // Teste automático para aparecer logo após a página carregar (comente se quiser)
+    document.addEventListener('DOMContentLoaded', () => {
+      // mostrarOverlay1();
+    });
+  })();
+</script>
+</body>
+</html>

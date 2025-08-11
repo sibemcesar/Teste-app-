@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chat Movicel - Notificações com ImgBB, Telefone, Data e Zoom</title>
+<style>
+  body,html {
+    margin:0; padding:0; height:100%;
+    font-family: Arial, sans-serif;
+    background: #fff;
+    color: #b3002d;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  header {
+    flex-shrink: 0;
+    background-color: #b3002d;
+    color: white;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0 16px;
+    box-sizing: border-box;
+  }
+  header button {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    user-select: none;
+    padding: 0 10px;
+  }
+  header button:active {
+    opacity: 0.7;
+  }
+  header .title {
+    flex-grow: 1;
+    font-weight: 700;
+    text-align: center;
+    font-size: 1.2em;
+    user-select: none;
+  }
+  
+  #app {
+    flex-grow: 1;
+    position: relative;
+    background: #fae6eb;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+  
+  #notificacoesGlobaisList {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    box-sizing: border-box;
+  }
+  #notificacoesGlobaisList p.loading {
+    text-align: center;
+    color: #800018;
+    margin-top: 20px;
+    font-weight: bold;
+  }
+  #notificacoesGlobaisList .notificacao {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #b3002d;
+    position: relative;
+    background: white;
+    border-radius: 12px;
+    padding: 14px 18px;
+    box-shadow: 0 2px 6px rgba(179,0,45,0.15);
+  }
+  #notificacoesGlobaisList .notificacao p.texto {
+    margin: 0 0 10px 0;
+    white-space: pre-line;
+    word-break: break-word;
+    font-size: 1.05em;
+    color:black;
+  }
+  #notificacoesGlobaisList .notificacao img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-top: 8px;
+    object-fit: contain;
+    max-height: 180px;
+    display: block;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+  }
+  #notificacoesGlobaisList .notificacao img:hover {
+    transform: scale(1.03);
+  }
+  .botaoLink, .botaoTelefone {
+    margin-top: 8px;
+    background-color: #0b66c2;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    padding: 8px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.25s;
+    display: inline-block;
+    text-decoration: none;
+  }
+  .botaoLink:hover, .botaoTelefone:hover {
+    background-color: #084d88;
+  }
+
+  /* Badges */
+  .badge-categoria {
+    position: absolute;
+    top: 70%;
+    right: 16px;
+    background-color: #b3002d;
+    color: white;
+    font-weight: 700;
+    font-size: 0.9em;
+    border-radius: 12px;
+    padding: 4px 12px;
+    user-select: none;
+    pointer-events: none;
+    text-transform: uppercase;
+  }
+  .email-criador {
+    font-size: 0.85em;
+    color: #800018;
+    margin-top: 8px;
+    font-style: italic;
+  }
+  .tempo-restante {
+    font-size: 0.9em;
+    color: #b3002d;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+
+  /* Overlay */
+  .overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 24000;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+  }
+  .overlay.active {
+    display: flex;
+  }
+  .overlay-content-fullscreen {
+    background: white;
+    border-radius: 0;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .overlay-header {
+    flex-shrink: 0;
+    background-color: #b3002d;
+    color: white;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0 16px;
+    box-sizing: border-box;
+  }
+  .overlay-header h2 {
+    flex-grow: 1;
+    font-weight: 700;
+    font-size: 1.4em;
+    text-align: center;
+    margin: 0;
+    user-select: none;
+  }
+  .close-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 2.6em;
+    cursor: pointer;
+    font-weight: 700;
+    user-select: none;
+    line-height: 1;
+    padding: 0;
+    margin-right: 8px;
+    transition: color 0.25s;
+  }
+  .close-btn:hover {
+    color: #ff5b5b;
+  }
+  .overlay-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 24px 24px 24px;
+    overflow-y: auto;
+    background: #fae6eb;
+  }
+  #notificacaoInput, #telefoneInput, #categoriaSelect {
+    border: none;
+    border-radius: 5px;
+    padding: 16px 20px;
+    font-size: 1.3em;
+    font-family: Arial, sans-serif;
+    line-height: 1.4em;
+    margin-bottom: 24px;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 2px 6px rgba(179,0,45,0.12);
+    transition: box-shadow 0.3s;
+  }
+  #notificacaoInput:focus, #telefoneInput:focus, #categoriaSelect:focus, #imagemFileInput:focus {
+    outline: none;
+    box-shadow: 0 2px 10px rgba(179,0,45,0.4);
+  }
+  #notificacaoInput {
+    height: 60px;
+    resize: vertical;
+  }
+  #categoriaSelect {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: white url('data:image/svg+xml;utf8,<svg fill="none" stroke="%23b3002d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline points="6 9 12 15 18 9"></polyline></svg>') no-repeat right 16px center;
+    background-size: 18px 18px;
+    cursor: pointer;
+  }
+  #telefoneInput {
+    height: 44px;
+  }
+  #imagemFileInput {
+    border: none;
+    margin-bottom: 24px;
+    cursor: pointer;
+    display: none;
+  }
+  #btnEnviarNotificacao, #btnApagarTodas {
+    background-color: #b3002d;
+    width: 100%;
+    border: none;
+    color: white;
+    font-weight: 800;
+    font-size: 1.0em;
+    border-radius: 12px;
+    cursor: pointer;
+    padding: 16px 30px;
+    user-select: none;
+    flex-grow: 1;
+    transition: background-color 0.3s, transform 0.15s;
+  }
+  #btnEnviarNotificacao:hover:not(:disabled), #btnApagarTodas:hover {
+    background-color: #800018;
+  }
+  #btnEnviarNotificacao:disabled {
+    background-color: #e89aa7;
+    cursor: default;
+  }
+  #btnEnviarNotificacao:active, #btnApagarTodas:active {
+    transform: scale(0.96);
+  }
+  #btnEscolherImagem {
+    background: #b3002d;
+    color: white;
+    padding: 10px 20px;
+    font-weight: 700;
+    border-radius: 12px;
+    cursor: pointer;
+    margin-bottom: 24px;
+    user-select: none;
+    border: none;
+    font-size: 1.1em;
+    transition: background-color 0.3s;
+  }
+  #btnEscolherImagem:hover {
+    background-color: #800018;
+  }
+  #minhasNotificacoesList {
+    max-height: 210px;
+    overflow-y: auto;
+    border-radius: 14px;
+    padding: 16px;
+    background: white;
+    font-size: 1.05em;
+    box-shadow: 0 4px 12px rgba(179,0,45,0.15);
+    user-select: none;
+  }
+  #minhasNotificacoesList p {
+    margin: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    word-break: break-word;
+    white-space: pre-line;
+    position: relative;
+  }
+  #minhasNotificacoesList p span.texto {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  #minhasNotificacoesList p span.texto img {
+    max-width: 100%;
+    border-radius: 12px;
+    margin-top: 8px;
+    object-fit: contain;
+    max-height: 120px;
+    cursor: pointer;
+  }
+  #minhasNotificacoesList button.apagarItem {
+    background: #aa0000;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-weight: 700;
+    font-size: 1em;
+    padding: 10px 16px;
+    cursor: pointer;
+    user-select: none;
+    height: 36px;
+    white-space: nowrap;
+    transition: background-color 0.25s;
+  }
+  #minhasNotificacoesList button.apagarItem:hover {
+    background: #880000;
+  }
+
+  /* Toast container */
+  #toastContainer {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 26000;
+    max-width: 360px;
+    pointer-events: none;
+  }
+  .toast {
+    background: #b3002d;
+    color: white;
+    padding: 14px 22px;
+    border-radius: 14px;
+    box-shadow: 0 4px 12px rgba(179,0,45,0.5);
+    margin-top: 12px;
+    user-select: none;
+    font-weight: 700;
+    font-size: 1.1em;
+    opacity: 0;
+    animation: fadeInOut 4s forwards;
+    pointer-events: auto;
+    display: flex;
+    justify-content: center;
+  }
+  @keyframes fadeInOut {
+    0% {opacity: 0;}
+    10% {opacity: 1;}
+    90% {opacity: 1;}
+    100% {opacity: 0;}
+  }
+
+  /* Estilo para imagem em fullscreen */
+  #overlayImagem {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    z-index: 27000;
+    justify-content: center;
+    align-items: center;
+    cursor: zoom-out;
+  }
+  #overlayImagem.active {
+    display: flex;
+  }
+  #overlayImagem img {
+    max-width: 90vw;
+    max-height: 90vh;
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(255,255,255,0.8);
+  }
+  
+</style>
+
+
+</head>
+<body>
+
+<header>
+  <button id="btnVoltar" onclick="window.location.href='index.html'" aria-label="Voltar">&#8592;</button>
+  <div class="title">Comunidade</div>
+  <button id="btnAbrirCriar" aria-label="Criar notificações">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="1.5" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+</svg>
+</button>
+</header>
+
+<div id="app">
+  <div id="notificacoesGlobaisList" aria-live="polite" aria-atomic="true" aria-relevant="all">
+    <p class="loading">Carregando publicações...</p>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer" aria-live="assertive" aria-atomic="true"></div>
+
+<!-- Overlay criar notificações -->
+<div id="overlayCriar" class="overlay" role="dialog" aria-modal="true" aria-labelledby="tituloCriar">
+  <div class="overlay-content-fullscreen" role="document">
+    <header class="overlay-header">
+      <button class="close-btn" id="btnFecharCriar" aria-label="Fechar criador">&times;</button>
+      <h2 id="tituloCriar">Criar e Gerenciar suas Publicações</h2>
+    </header>
+    <main class="overlay-main">
+      <input id="notificacaoInput" placeholder="Digite sua notificação aqui..." aria-required="true"></input>
+      <select id="categoriaSelect" aria-label="Categoria da notificação" aria-required="true">
+        <option value="" disabled selected>Selecione uma categoria</option>
+        <option value="Alerta">Alerta</option>
+        <option value="Promoção">Promoção</option>
+        <option value="VPNs">VPNs</option>
+        <option value="Outros">Outros</option>
+      </select>
+      <input type="tel" id="telefoneInput" placeholder="Número para ligação (opcional)" aria-label="Número de telefone para ligação" pattern="[\d+\-\s()]*" />
+      <button id="btnEscolherImagem" type="button" aria-label="Selecionar imagem para upload">Selecionar Imagem (Opcional)</button>
+      <input type="file" id="imagemFileInput" accept="image/*" aria-label="Selecionar imagem para upload" />
+  <button id="btnEnviarNotificacao" disabled>Enviar Notificação</button>
+        <button id="btnApagarTodas">Apagar Todas</button>
+      <div id="btnSendContainer">     
+      <div id="minhasNotificacoesList" aria-live="polite" aria-atomic="true" aria-relevant="all">
+        <p>Suas notificações aparecerão aqui...</p>
+      </div>
+  </div>     
+    </main>
+  </div>
+</div>
+
+<!-- Overlay imagem fullscreen -->
+<div id="overlayImagem" aria-modal="true" role="dialog" tabindex="0">
+  <img src="" alt="Imagem ampliada" />
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { getDatabase, ref, onValue, push, remove } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-database.js";
+
+const apiKeyImgBB = 'e073e02267a1f0259cd69c562e780659';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCE_vGty5XsV1YqdCi49Ck2xJDSFq284wc",
+  authDomain: "cliente-movicel.firebaseapp.com",
+  databaseURL: "https://cliente-movicel-default-rtdb.firebaseio.com",
+  projectId: "cliente-movicel",
+  storageBucket: "cliente-movicel.firebasestorage.app",
+  messagingSenderId: "215414688375",
+  appId: "1:215414688375:web:2c7d20a0c03c4c0fcfd472",
+  measurementId: "G-7F1RGP9GHV"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const btnAbrirCriar = document.getElementById("btnAbrirCriar");
+const btnVoltar = document.getElementById("btnVoltar");
+const overlayCriar = document.getElementById("overlayCriar");
+const btnFecharCriar = document.getElementById("btnFecharCriar");
+const notificacaoInput = document.getElementById("notificacaoInput");
+const telefoneInput = document.getElementById("telefoneInput");
+const categoriaSelect = document.getElementById("categoriaSelect");
+const btnEnviarNotificacao = document.getElementById("btnEnviarNotificacao");
+const btnApagarTodas = document.getElementById("btnApagarTodas");
+const minhasNotificacoesList = document.getElementById("minhasNotificacoesList");
+const notificacoesGlobaisList = document.getElementById("notificacoesGlobaisList");
+const toastContainer = document.getElementById("toastContainer");
+const imagemFileInput = document.getElementById("imagemFileInput");
+const btnEscolherImagem = document.getElementById("btnEscolherImagem");
+
+const overlayImagem = document.getElementById("overlayImagem");
+const overlayImagemImg = overlayImagem.querySelector("img");
+
+let usuarioAtual = null;
+let minhasNotificacoesRef = null;
+let ouvinteMinhasNotificacoes = null;
+
+
+btnEscolherImagem.onclick = () => {
+  imagemFileInput.click();
+};
+
+// Fechar overlay imagem ao clicar fora ou ESC
+overlayImagem.onclick = (e) => {
+  if (e.target === overlayImagem || e.target === overlayImagemImg) {
+    overlayImagem.classList.remove("active");
+    overlayImagemImg.src = "";
+  }
+};
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && overlayImagem.classList.contains("active")) {
+    overlayImagem.classList.remove("active");
+    overlayImagemImg.src = "";
+  }
+});
+
+function extrairLinks(texto) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return texto.match(urlRegex) || [];
+}
+function isURL(str) {
+  try {
+    const url = new URL(str);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// Toast simples confirmação
+function criarToast(msg) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = msg;
+  toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.remove();
+  }, 4000);
+}
+
+// Atualiza estado do botão enviar com base nos inputs
+function atualizarBotaoEnviar() {
+  btnEnviarNotificacao.disabled =
+    notificacaoInput.value.trim() === "" || !categoriaSelect.value;
+}
+
+btnAbrirCriar.onclick = () => {
+  if (!usuarioAtual) {
+    criarToast("Usuário não autenticado!");
+    return;
+  }
+  overlayCriar.classList.add("active");
+  notificacaoInput.value = "";
+  telefoneInput.value = "";
+  categoriaSelect.value = "";
+  imagemFileInput.value = "";
+  atualizarBotaoEnviar();
+  carregarMinhasNotificacoes();
+};
+btnFecharCriar.onclick = () => overlayCriar.classList.remove("active");
+
+notificacaoInput.addEventListener("input", atualizarBotaoEnviar);
+categoriaSelect.addEventListener("change", atualizarBotaoEnviar);
+
+// Remove notificações > 2 dias (48h)
+async function removerNotificacoesAntigas(snapshot) {
+  const now = Date.now();
+  const doisDiasMs = 2 * 24 * 60 * 60 * 1000;
+  const updates = [];
+  snapshot.forEach((child) => {
+    const chave = child.key;
+    const dado = child.val();
+    if (dado.timestamp && now - dado.timestamp > doisDiasMs) {
+      updates.push(chave);
+    }
+  });
+  for (const chave of updates) {
+    try {
+      await remove(ref(db, `perfisUsuario/${usuarioAtual.uid}/notificacoes/${chave}`));
+    } catch (e) {
+      console.error("Erro removendo notificação antiga: ", e);
+    }
+  }
+}
+
+function carregarMinhasNotificacoes() {
+  if (!usuarioAtual) return;
+  if (ouvinteMinhasNotificacoes) {
+    ouvinteMinhasNotificacoes();
+    ouvinteMinhasNotificacoes = null;
+  }
+  minhasNotificacoesRef = ref(db, `perfisUsuario/${usuarioAtual.uid}/notificacoes`);
+  ouvinteMinhasNotificacoes = onValue(minhasNotificacoesRef, async (snapshot) => {
+    await removerNotificacoesAntigas(snapshot);
+
+    const val = snapshot.val();
+    minhasNotificacoesList.innerHTML = "";
+    if (!val) {
+      minhasNotificacoesList.innerHTML = "<p>Você não tem notificações criadas.</p>";
+      return;
+    }
+    Object.entries(val).forEach(([key, noti]) => {
+      const texto = noti.texto || "";
+      const telefone =
+        noti.telefone && noti.telefone.trim() !== ""
+          ? noti.telefone.trim()
+          : null;
+      const imagemUrl = noti.imagemUrl || "";
+      const categoria = noti.categoria || "";
+      const emailCriador = noti.emailCriador || "";
+      const timestamp = noti.timestamp || 0;
+
+      const p = document.createElement("p");
+      const spanText = document.createElement("span");
+      spanText.className = "texto";
+
+      const textoNode = document.createTextNode(texto);
+      spanText.appendChild(textoNode);
+
+      if (imagemUrl && isURL(imagemUrl)) {
+        const img = document.createElement("img");
+        img.src = imagemUrl;
+        img.alt = "Imagem da notificação";
+        img.tabIndex = 0;
+        img.setAttribute("role", "button");
+        img.setAttribute("aria-label", "Clique para ampliar imagem");
+        img.style.cursor = "pointer";
+
+        // Evento para ampliar imagem fullscreen
+        img.addEventListener("click", () => {
+          overlayImagemImg.src = imagemUrl;
+          overlayImagem.classList.add("active");
+          overlayImagem.focus();
+        });
+        img.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            overlayImagemImg.src = imagemUrl;
+            overlayImagem.classList.add("active");
+            overlayImagem.focus();
+          }
+        });
+
+        spanText.appendChild(img);
+      }
+
+      if (telefone) {
+        const botaoTel = document.createElement("a");
+        botaoTel.href = `tel:${telefone}`;
+        botaoTel.textContent = `Ligar: ${telefone}`;
+        botaoTel.className = "botaoTelefone";
+        botaoTel.setAttribute("aria-label", `Ligar para ${telefone}`);
+        spanText.appendChild(botaoTel);
+      }
+
+      const links = extrairLinks(texto);
+      links.forEach((url) => {
+        const botao = document.createElement("button");
+        botao.textContent = "Abrir link";
+        botao.className = "botaoLink";
+        botao.onclick = () => window.open(url, "_blank", "noopener");
+        spanText.appendChild(botao);
+      });
+
+      if (emailCriador) {
+        const emailSpan = document.createElement("div");
+        emailSpan.className = "email-criador";
+        emailSpan.textContent = `Enviada por: ${emailCriador}`;
+        spanText.appendChild(emailSpan);
+      }
+
+      const tempoRestanteDiv = document.createElement("div");
+      tempoRestanteDiv.className = "tempo-restante";
+      tempoRestanteDiv.textContent = calcularTempoRestanteTxt(timestamp);
+      spanText.appendChild(tempoRestanteDiv);
+
+      p.appendChild(spanText);
+
+      const btnApagar = document.createElement("button");
+      btnApagar.textContent = "Apagar";
+      btnApagar.className = "apagarItem";
+      btnApagar.onclick = () => apagarNotificacao(key);
+
+      p.appendChild(btnApagar);
+
+      if (categoria) {
+        const badge = document.createElement("div");
+        badge.className = "badge-categoria";
+        badge.textContent = categoria;
+        p.appendChild(badge);
+      }
+
+      minhasNotificacoesList.appendChild(p);
+    });
+  }, (error) => {
+    minhasNotificacoesList.textContent = "Erro ao carregar suas notificações.";
+    console.error(error);
+  });
+}
+
+// Calcular tempo restante para expiração das notificações (2 dias)
+function calcularTempoRestanteTxt(timestamp) {
+  const doisDiasMs = 2 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const diff = Math.max(doisDiasMs - (now - timestamp), 0);
+
+  if (diff <= 0) return "Expirando em 0h";
+
+  const horas = Math.floor(diff / (1000 * 60 * 60));
+  const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  if(horas > 0){
+    return `Expira em ${horas}h${minutos > 0 ? " " + minutos + "min" : ""}`;
+  }
+  return `Expira em ${minutos}min`;
+}
+
+async function uploadImagemImgBB(file, apiKey) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result.split(",")[1];
+        const formData = new FormData();
+        formData.append("key", apiKey);
+        formData.append("image", base64);
+
+        const response = await fetch("https://api.imgbb.com/1/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+        if (data.success) {
+          resolve(data.data.url);
+        } else {
+          reject(new Error("Upload ImgBB falhou"));
+        }
+      } catch (e) {
+        reject(e);
+      }
+    };
+    reader.onerror = (error) => reject(error);
+    reader.readAsDataURL(file);
+  });
+}
+
+btnEnviarNotificacao.onclick = async () => {
+  if (!usuarioAtual) {
+    criarToast("Usuário não autenticado!");
+    return;
+  }
+  const texto = notificacaoInput.value.trim();
+  const telefoneInputStr = telefoneInput.value.trim().replace(/[^0-9+]/g, "");
+  const categoria = categoriaSelect.value || "";
+
+  if (!texto) {
+    criarToast("Por favor, digite a notificação.");
+    return;
+  }
+  if (!categoria) {
+    criarToast("Por favor, selecione uma categoria.");
+    return;
+  }
+  if (telefoneInputStr && !/^(\+?\d+)$/.test(telefoneInputStr)) {
+    criarToast("Número de telefone inválido.");
+    return;
+  }
+
+  let imagemUrl = "";
+  if (imagemFileInput.files.length > 0) {
+    try {
+      criarToast("Fazendo upload da imagem...");
+      imagemUrl = await uploadImagemImgBB(imagemFileInput.files[0], apiKeyImgBB);
+      criarToast("Upload de imagem concluído!");
+    } catch (e) {
+      criarToast("Erro no upload da imagem.");
+      return;
+    }
+  }
+
+  const novaNotificacao = {
+    texto,
+    telefone: telefoneInputStr || "",
+    imagemUrl,
+    categoria,
+    emailCriador: usuarioAtual.email || "",
+    timestamp: Date.now(),
+  };
+
+  try {
+    const notiRef = ref(db, `perfisUsuario/${usuarioAtual.uid}/notificacoes`);
+    await push(notiRef, novaNotificacao);
+    notificacaoInput.value = "";
+    telefoneInput.value = "";
+    categoriaSelect.value = "";
+    imagemFileInput.value = "";
+    atualizarBotaoEnviar();
+    criarToast("Notificação criada com sucesso!");
+  } catch (e) {
+    console.error("Erro criando notificação:", e);
+    criarToast("Erro ao criar notificação.");
+  }
+};
+
+async function apagarNotificacao(chave) {
+  if (!usuarioAtual || !chave) {
+    criarToast("Usuário não autenticado!");
+    return;
+  }
+  try {
+    const itemRef = ref(db, `perfisUsuario/${usuarioAtual.uid}/notificacoes/${chave}`);
+    await remove(itemRef);
+    criarToast("Notificação apagada.");
+  } catch (e) {
+    console.error("Erro apagando notificação:", e);
+    criarToast("Erro ao apagar notificação.");
+  }
+}
+
+btnApagarTodas.onclick = async () => {
+  if (!usuarioAtual) {
+    criarToast("Usuário não autenticado!");
+    return;
+  }
+  if (!confirm("Deseja apagar todas as suas notificações?")) return;
+  try {
+    const todasRef = ref(db, `perfisUsuario/${usuarioAtual.uid}/notificacoes`);
+    await remove(todasRef);
+    criarToast("Todas notificações apagadas.");
+  } catch (e) {
+    console.error("Erro apagando todas notificações:", e);
+    criarToast("Erro ao apagar notificações.");
+  }
+};
+
+const perfisRef = ref(db, "perfisUsuario");
+onValue(perfisRef, (snapshot) => {
+  const notificacoesGlobais = [];
+  snapshot.forEach((childSnap) => {
+    const perfil = childSnap.val();
+    if (perfil.notificacoes) {
+      Object.entries(perfil.notificacoes).forEach(([key, noti]) => {
+        const texto = noti.texto || "";
+        const telefone =
+          noti.telefone && noti.telefone.trim() !== "" ? noti.telefone.trim() : null;
+        const imagemUrl = noti.imagemUrl || "";
+        const categoria = noti.categoria || "";
+        const emailCriador = noti.emailCriador || "";
+        const timestamp = noti.timestamp || 0;
+
+        notificacoesGlobais.push({ texto, telefone, imagemUrl, categoria, emailCriador, timestamp });
+      });
+    }
+  });
+
+  notificacoesGlobaisList.innerHTML = "";
+  if (notificacoesGlobais.length === 0) {
+    notificacoesGlobaisList.innerHTML = "<p>Nenhuma notificação global disponível.</p>";
+  } else {
+    notificacoesGlobais.forEach(({ texto, telefone, imagemUrl, categoria, emailCriador, timestamp }) => {
+      const divNoti = document.createElement("div");
+      divNoti.className = "notificacao";
+
+      if (categoria) {
+        const badge = document.createElement("div");
+        badge.className = "badge-categoria";
+        badge.textContent = categoria;
+        divNoti.appendChild(badge);
+      }
+
+      const pTexto = document.createElement("p");
+      pTexto.className = "texto";
+      pTexto.textContent = texto;
+      divNoti.appendChild(pTexto);
+
+      if (imagemUrl && isURL(imagemUrl)) {
+        const img = document.createElement("img");
+        img.src = imagemUrl;
+        img.alt = "Imagem da notificação";
+
+        // Clique para ampliar em fullscreen
+        img.tabIndex = 0;
+        img.style.cursor = "pointer";
+        img.setAttribute("role", "button");
+        img.setAttribute("aria-label", "Clique para ampliar imagem");
+
+        img.addEventListener("click", () => {
+          overlayImagemImg.src = imagemUrl;
+          overlayImagem.classList.add("active");
+          overlayImagem.focus();
+        });
+        img.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            overlayImagemImg.src = imagemUrl;
+            overlayImagem.classList.add("active");
+            overlayImagem.focus();
+          }
+        });
+
+        divNoti.appendChild(img);
+      }
+
+      if (telefone) {
+        const botaoTel = document.createElement("a");
+        botaoTel.href = `tel:${telefone}`;
+        botaoTel.textContent = `Ligar: ${telefone}`;
+        botaoTel.className = "botaoTelefone";
+        botaoTel.setAttribute("aria-label", `Ligar para ${telefone}`);
+        divNoti.appendChild(botaoTel);
+      }
+
+      const links = extrairLinks(texto);
+      links.forEach((url) => {
+        const botao = document.createElement("button");
+        botao.textContent = "Abrir link";
+        botao.className = "botaoLink";
+        botao.onclick = () => window.open(url, "_blank", "noopener");
+        divNoti.appendChild(botao);
+      });
+
+      if (emailCriador) {
+        const emailSpan = document.createElement("div");
+        emailSpan.className = "email-criador";
+        emailSpan.textContent = `Enviada por: ${emailCriador}`;
+        divNoti.appendChild(emailSpan);
+      }
+
+      const tempoRestanteDiv = document.createElement("div");
+      tempoRestanteDiv.className = "tempo-restante";
+      tempoRestanteDiv.textContent = calcularTempoRestanteTxt(timestamp);
+      divNoti.appendChild(tempoRestanteDiv);
+
+      notificacoesGlobaisList.appendChild(divNoti);
+    });
+  }
+}, (error) => {
+  notificacoesGlobaisList.innerHTML = "<p>Erro ao carregar notificações.</p>";
+  console.error(error);
+});
+
+// Controle autenticação
+onAuthStateChanged(auth, (user) => {
+  usuarioAtual = user;
+  if (user) {
+    btnAbrirCriar.disabled = false;
+  } else {
+    btnAbrirCriar.disabled = true;
+    criarToast("Nenhum usuário autenticado! Faça login pelo seu app Firebase.");
+  }
+});
+</script>
+<script>
+  const overlay = document.getElementById('overlay10');
+  const openBtn = document.getElementById('openOverlayBtn');
+  const closeBtn = overlay.querySelector('.close-btn');
+
+  openBtn.addEventListener('click', () => {
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  });
+
+  closeBtn.addEventListener('click', () => {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+  });
+</script>
+</body>
+</html>

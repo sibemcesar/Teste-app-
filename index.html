@@ -1,0 +1,1796 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Movicel App Clone - Overlay Fullscreen Header na Frente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* Reset e base */
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #fff;
+      color: #b3002d;
+      overflow-x: hidden;
+    }
+   
+       #authContainer {
+    position: fixed; inset: 0; background: white;
+    display: flex; flex-direction: column;
+    z-index: 10000;
+    transition: opacity 0.35s;
+    opacity: 1;
+    pointer-events: auto;
+         
+  }
+  #authContainer.hide {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #authTitle {
+    background: #bc0036; color: white; height: 56px; line-height: 56px; text-align: center;
+    font-weight: bold; font-family: Verdana, Arial, sans-serif; font-size: 1.3em; user-select: none; position: relative;
+  }
+  #btnBackCreateAccount {
+    position: absolute; left: 8px; top: 10px; border: none; background: none; color: white; font-size: 1.5em;
+    border-radius: 50%; cursor: pointer; user-select: none; padding: 0; width: 36px; height: 36px; text-align: center;
+    transition: background-color 0.2s ease;
+  }
+  #btnBackCreateAccount:hover { background: rgba(255,255,255,0.22); }
+  #authContent {
+    flex: 1; padding: 24px 20px 48px; max-width: 420px; margin: auto; display: flex; flex-direction: column;
+    gap: 20px; color: #303030;
+  }
+  form.auth-form { display: flex; flex-direction: column; gap: 14px; }
+  form.auth-form label { font-weight: bold; color: #bc0036; }
+  form.auth-form input {
+    font-size: 1em; padding: 12px 14px; border-radius: 10px; border: 2px solid #bc0036; outline: none; width: 100%;
+    box-sizing: border-box; transition: border-color 0.3s;
+  }
+  form.auth-form input:focus {
+    border-color: #9b002a;
+    box-shadow: 0 0 8px #9b002a99;
+  }
+  form.auth-form button {
+    padding: 14px 0; background: #bc0036; border: none; border-radius: 14px; color: white; font-weight: bold; font-size: 1.1em;
+    cursor: pointer; user-select: none; box-shadow: 0 4px 10px rgba(188,0,54,0.5); transition: background-color 0.25s;
+  }
+  form.auth-form button:disabled { background: #dca9bc; cursor: not-allowed; box-shadow: none; }
+  form.auth-form button:hover:not(:disabled) { background: #9b002a; }
+  .auth-error {
+    color: #bc0036;
+    background: #ffeef3;
+    font-weight: bold;
+    font-size: 1em;
+    min-height: 22px;
+    user-select: none;
+    text-align: center;
+    border-radius: 8px;
+    margin-top: 4px;
+    padding: 6px;
+    line-height: 1.2em;
+    border: 1.2px solid #bc0036;
+    display: none;
+  }
+  .auth-error.visible { display: block; }
+
+  #formCreateAccount { display: none; }
+  #switchLinks { text-align: center; margin-top: 16px; font-weight: bold; color: #bc0036; cursor: pointer; user-select: none; }
+  #switchLinks > span { margin: 0 6px; text-decoration: underline; display: inline-block; }
+
+    
+  #toast-container {
+    position: fixed; top: 20px; right: 20px; z-index: 15000; display: flex; flex-direction: column; gap: 12px;
+  }
+  .toast {
+    background-color: #bc0036; color: white; padding: 14px 26px; border-radius: 14px; font-family: Verdana, Arial, sans-serif;
+    font-weight: 700; box-shadow: 0 4px 10px rgba(188,0,54,0.7); opacity: 0; transform: translateX(120%);
+    animation: slidein 0.4s forwards, fadeout 0.4s forwards 3.6s; user-select: none;
+  }
+  @keyframes slidein { to { opacity: 1; transform: translateX(0); } }
+  @keyframes fadeout { to { opacity: 0; transform: translateX(120%); } }
+
+  
+    .header {
+      background: #bc0036;
+      padding: 10px 0 10px;
+      text-align: center;
+      position: relative;
+      z-index: 4000; /* header principal está abaixo do overlay header */
+      user-select: none;
+    }
+    .header .hamburger {
+      position: absolute;
+      left: 10px;
+      top: 24px;
+      width: 20px;
+      height: 28px;
+      cursor: pointer;
+      fill: white;
+      z-index: 3900; /* fica atrás do overlay */
+      transition: fill 0.2s;
+    }
+    .header .hamburger:hover {
+      fill: #f080a0;
+    }
+   .header .botao-direito {
+  position: absolute;
+  right: 10px;
+  top: 20px; /* alinhado verticalmente similar ao hamburger */
+  height: 28px;
+  cursor: pointer;
+  color: white;
+  background: transparent;
+  border: none;
+  font-size: 1.5em;
+  z-index: 3900;
+  transition: color 0.2s;
+  user-select: none;
+}
+    .logo {
+      font-size: 2.3em;
+      color: #fff;
+      font-weight: bold;
+      letter-spacing: -2px;
+      margin-top: 6px;
+      font-family: Verdana, Arial, sans-serif;
+      pointer-events: none;
+    }
+
+    .catalog-title {
+      background: #fff;
+      color: #bc0036;
+      font-weight: bold;
+      padding: 10px 0 5px 16px;
+      font-size: 1.08em;
+      margin: 0;
+    }
+    .catalog {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      background: #fff;
+      padding: 16px 8px 80px 8px; /* espaço para footer */
+    }
+    .product {
+      width: 90px;
+      height: 90px;
+      background: #bc0036;
+      color: #fff;
+      border-radius: 11px;
+      margin: 10px 7px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.97em;
+      text-align: center;
+      box-shadow: 0 2px 5px rgba(128, 0, 64, 0.06);
+      cursor: pointer;
+      transition: transform 0.15s;
+      gap: 2px;
+      position: relative;
+    }
+    .product svg {
+      width: 22px;
+      height: 22px;
+      margin-bottom: 7px;
+    }
+    .product:active {
+      transform: scale(0.96);
+      background: #880022;
+    }
+
+    /* Footer fixo com dois botões */
+    .footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 54px;
+      background: #bc0036;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      box-shadow: 0 -2px 12px rgba(188, 0, 54, 0.17);
+      z-index: 1000;
+    }
+    .footer-btn {
+      flex: 1;
+      text-align: center;
+      color: #fff;
+      background: none;
+      border: none;
+      font-size: 1.04em;
+      padding: 0 12px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.10s;
+    }
+    .footer-btn svg {
+      width: 20px;
+      height: 20px;
+      margin-bottom: 2px;
+    }
+    .footer-btn:active {
+      background: #b00028;
+    }
+
+    /* Overlays full screen, agora top 0 e height 100vh */
+    .overlay {
+      position: fixed;
+      top: 0;        /* mudou para 0 */
+      left: 0;
+      width: 100vw;
+      height: 100vh; /* altura total da tela */
+      background-color: #fff;
+      z-index: 4100;  /* maior que header principal e hambúrguer */
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(20px);
+      transition:
+        opacity 0.3s ease,
+        transform 0.3s ease;
+    }
+
+    /* Overlay ativo visível */
+    .overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+
+    /* Barra topo sobre o overlay */
+    .overlay-header {
+      position: sticky;
+      top: 0;
+      background: #bc0036;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      height: 56px;
+      padding: 0 16px;
+      font-size: 1.25em;
+      font-weight: bold;
+      font-family: Verdana, Arial, sans-serif;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      flex-shrink: 0;
+      user-select: none;
+      z-index: 4200; /* acima de tudo */
+    }
+    .overlay-back-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.6em;
+      margin-right: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      transition: background-color 0.15s ease;
+      border-radius: 50%;
+    }
+    .overlay-back-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    .overlay-content {
+      padding: 20px 20px 40px 20px;
+      color: #303030;
+      font-size: 1em;
+      max-width: 480px;
+      margin: 8px auto 40px auto;
+      flex-grow: 1;
+    }
+
+    /* Botões perfil igual gestão (estilo destacado com borda, fundo branco e texto vermelho) */
+    .perfil-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .perfil-action-btn {
+      background: white;
+      color: #bc0036;
+      font-weight: bold;
+      border: 2px solid #bc0036;
+      border-radius: 14px;
+      padding: 14px 0;
+      font-size: 1.1em;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(188, 0, 54, 0.2);
+      transition:
+        background-color 0.25s ease,
+        color 0.25s ease;
+    }
+    .perfil-action-btn:hover {
+      background: #bc0036;
+      color: white;
+    }
+    .perfil-action-btn:active {
+      background: #800022;
+      color: white;
+    }
+
+    /* Perfil texto */
+    .perfil-info {
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .perfil-nome {
+      font-weight: bold;
+      font-size: 2.0em;
+      color: #bc0036;
+      margin-bottom: 6px;
+    }
+    .perfil-num {
+      font-size: 1.1em;
+      color: #555;
+      letter-spacing: 1.3px;
+    }
+
+    /* Drawer menu lateral */
+    .drawer-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 4200; /* acima de overlay */
+    }
+    .drawer-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .drawer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 260px;
+      height: 100vh;
+      background: #fff;
+      box-shadow: 3px 0 9px rgba(0, 0, 0, 0.3);
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      z-index: 4300; /* acima do backdrop e overlay */
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      touch-action: none; /* para controle touch */
+    }
+    .drawer.active {
+      transform: translateX(0);
+    }
+    .drawer-header {
+      background: #bc0036;
+      color: #fff;
+      padding: 18px 20px;
+      font-size: 1.3em;
+      font-weight: bold;
+      font-family: Verdana, Arial, sans-serif;
+      flex-shrink: 0;
+    }
+    .drawer-content {
+      padding: 20px 20px;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .drawer-footer {
+      padding: 20px 20px;
+      border-top: 1px solid #eee;
+    }
+    .drawer-info {
+      color: #8d8d8d;
+      font-size: 0.95em;
+    }
+    .drawer-btn {
+      margin-top: 20px;
+      padding: 14px 0;
+      border: none;
+      border-radius: 14px;
+      background: #bc0036;
+      width: 100%;
+      font-weight: bold;
+      color: white;
+      font-size: 1.1em;
+      cursor: pointer;
+      box-shadow: 0 4px 9px rgba(188, 0, 54, 0.4);
+      transition: background-color 0.3s;
+    }
+    .drawer-btn:hover {
+      background: #9e002e;
+    }
+    .drawer-btn:active {
+      background: #7a0023;
+    }
+  
+  .topup-form {
+    max-width: 380px;
+    margin: 20px auto 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .topup-form label {
+    font-weight: bold;
+    color: #bc0036;
+    margin-bottom: 6px;
+    font-size: 1em;
+  }
+  .topup-form input[type="tel"],
+  .topup-form input[type="number"] {
+    padding: 10px 12px;
+    font-size: 1em;
+    border-radius: 8px;
+    border: 2px solid #bc0036;
+    outline-offset: 2px;
+    outline-color: transparent;
+    transition: outline-color 0.22s ease;
+  }
+  .topup-form input[type="tel"]:focus,
+  .topup-form input[type="number"]:focus {
+    outline-color: #bc0036;
+    border-color: #9b002a;
+  }
+  .topup-form input[type="number"]::-webkit-inner-spin-button,
+  .topup-form input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .topup-form button {
+    padding: 14px 0;
+    background: #bc0036;
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-weight: bold;
+    font-size: 1.1em;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(188, 0, 54, 0.4);
+    transition: background-color 0.22s ease;
+  }
+  .topup-form button:disabled {
+    background: #dca9bc;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+  .topup-message {
+    font-size: 0.9em;
+    color: #7a0023;
+    text-align: center;
+    margin-top: 8px;
+    min-height: 24px;
+  }
+  
+  /* Estilo básico do toast */
+  #toast {
+    position: fixed;
+    bottom: 70px; /* acima do footer */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #bc0036;
+    color: white;
+    padding: 12px 26px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 1em;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    z-index: 9999;
+  }
+  #toast.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Overlay fullscreen */
+  .dialogo-fullscreen {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0,0,0,0.6);
+    display: hidden;
+    justify-content: center;
+    align-items: center;
+    z-index: 110000;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+
+  /* Conteúdo do diálogo */
+  .dialogo-conteudo {
+    background: white;
+    border-radius: 12px;
+    width: 90vw;
+    max-width: 480px;
+    height: 90vh;
+    max-height: 600px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 15px 28px rgba(0,0,0,0.3);
+  }
+
+  /* Cabeçalho do diálogo */
+  .dialogo-header {
+    flex-shrink: 0;
+    padding: 16px 20px;
+    background-color: #bc0036;
+    color: white;
+    font-weight: 700;
+    font-size: 1.25rem;
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+  }
+
+  /* Botão fechar no header */
+  .dialogo-fechar {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    user-select: none;
+  }
+  .dialogo-fechar:hover {
+    color: #ff5b5b;
+  }
+
+  /* Corpo do diálogo (scrollável se precisar) */
+  .dialogo-corpo {
+    padding: 20px;
+    overflow-y: auto;
+    flex-grow: 1;
+    font-family: Arial, sans-serif;
+    font-size: 1rem;
+    color: #333;
+  }
+
+  /* Botões das opções */
+  #opcoesContainter {
+    display: flex;
+    gap: 16px;
+  }
+  .btn-opcao {
+    flex: 1;
+    padding: 14px 0;
+    border-radius: 8px;
+    border: none;
+    background-color: #bc0036;
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  .btn-opcao:hover, .btn-opcao:focus {
+    background-color: #9a002a;
+    outline: none;
+  }
+
+  /* Input container */
+  #inputNumeroContainer {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #inputNumeroDialogo {
+    font-size: 1.1rem;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1.5px solid #ccc;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Ações: ligar e cancelar */
+  .dialogo-actions {
+    display: flex;
+    gap: 12px;
+  }
+  #btnLigarDialogo:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  #btnLigarDialogo, #btnCancelarDialogo {
+    flex: 1;
+    padding: 12px 0;
+    border-radius: 8px;
+    border: none;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  #btnLigarDialogo {
+    background-color: #b3002d;
+    color: white;
+  }
+  #btnLigarDialogo:hover:enabled {
+    background-color: #800018;
+  }
+  #btnCancelarDialogo {
+    background-color: #eee;
+    color: #333;
+  }
+  #btnCancelarDialogo:hover {
+    background-color: #ddd;
+  }
+  .container-botoes-fixos {
+    display: flex;
+    flex-direction: column; /* empilha verticalmente */
+    gap: 14px;
+    align-items: center; /* centraliza horizontalmente */
+  }
+  .btn-ativar-plano {
+    width: 300px; /* largura fixa */
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: #bc0036;
+    border: none;
+    border-radius: 12px;
+    padding: 12px 18px;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    box-shadow: 0 4px 8px rgba(188,0,54,0.5);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 1rem;
+    user-select: none;
+    transition: background-color 0.3s ease;
+  }
+ .btn-ativar-plano:hover {
+    background-color: #9a002a;
+  }
+  .icone-plano svg {
+    display: block;
+  }
+  .info-plano {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+  .nome-plano {
+    font-size: 1.1em;
+    font-weight: 800;
+  }
+  .dados-plano {
+    font-weight: 500;
+    font-size: 0.9em;
+    opacity: 0.85;
+    margin-top: 3px;
+  }
+  .detalhes-plano {
+    font-weight: 500;
+    font-size: 0.85em;
+    opacity: 0.75;
+    margin-top: 4px;
+  }
+  </style>
+</head>
+<body>
+    <!-- Área de autenticação -->
+<div id="authContainer" role="region" aria-label="Área de autenticação">
+
+  <header id="authTitle" aria-live="polite" aria-atomic="true">Login Movicel</header>
+
+  <main id="authContent">
+
+    <!-- Formulário Login -->
+    <form id="formLoginAuth" class="auth-form" autocomplete="on" novalidate aria-describedby="loginAuthError" role="form">
+       <label for="inputNome">Número Movicel</label>
+      <input type="number" id="inputNome" name="inputNome" required minlength="3" maxlength="40" autocomplete="name" placeholder="Seu número movicel" />
+     
+      <label for="loginEmailAuth">E-mail</label>
+      <input type="email" id="loginEmailAuth" name="loginEmailAuth" required autocomplete="email" placeholder="seu-email@gmail.com" />
+       <label for="loginEmailAuth">Palavra Passe</label>
+       <input
+  type="password"
+  id="loginPasswordAuth"
+  name="loginPasswordAuth"
+  pattern="\d{6}"
+  maxlength="6"
+  inputmode="numeric"
+  autocomplete="current-password"
+  placeholder=" senha"
+  />
+  <button type="submit" aria-label="Entrar no sistema">Entrar</button>
+      <div class="auth-error" id="loginAuthError" role="alert" aria-live="polite"></div>
+    </form>
+
+    <!-- Formulário Criar Conta -->
+    <form id="formCreateAccount" class="auth-form" autocomplete="on" novalidate aria-describedby="createAccountError" role="form">
+
+      <button type="button" id="btnBackCreateAccount" aria-label="Voltar para login">&#x2190;</button>
+      <label for="inputNome">Número Movicel</label>
+      <input type="number" id="inputNome" name="inputNome" required minlength="3" maxlength="40" autocomplete="name" placeholder="Seu número movicel" />
+      <label for="inputEmail">E-mail (Gmail)</label>
+      <input type="email" id="inputEmail" name="inputEmail" required pattern=".+@gmail\.com" title="Use um endereço Gmail válido" autocomplete="email" placeholder="exemplo@gmail.com" />
+        <label for="loginEmailAuth">Palavra Passe</label>    
+     <input
+  type="password"
+  id="loginPasswordAuth"
+  name="loginPasswordAuth"
+  pattern="\d{6}"
+  maxlength="6"
+  inputmode="numeric"
+  autocomplete="current-password"
+  placeholder="123456"
+  />
+ <button type="submit" aria-label="Criar nova conta">Criar Conta</button>
+      <div class="auth-error" id="createAccountError" role="alert" aria-live="polite"></div>
+    </form>
+
+    <!-- Links alternar -->
+    <div id="switchLinks" role="navigation" aria-label="Alternar entre login e criação de conta">
+      <span id="toCreateAccount" tabindex="0" role="button" aria-pressed="false">Não tem conta? Criar Conta</span>
+      <span id="toLogin" tabindex="0" style="display:none;" role="button" aria-pressed="false">Já tem conta? Entrar</span>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast-container" aria-live="polite" aria-atomic="true" role="alert"></div>
+
+  <div class="header">
+    <!-- Botão hamburguer -->
+    <svg class="hamburger" viewBox="0 0 24 24" aria-label="Abrir menu" role="button" tabindex="0">
+      <rect y="4" width="24" height="3" rx="1.5"></rect>
+      <rect y="10.5" width="24" height="3" rx="1.5"></rect>
+      <rect y="17" width="24" height="3" rx="1.5"></rect>
+    </svg>
+    <div class="logo">Movicel</div>
+    <!-- Botão direito -->
+  <button class="botao-direito" onclick="window.open('notify.html')" aria-label="Notificações" style="background: transparent; border: none; cursor: pointer; padding: 0; margin: 0;">
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+</button>
+  </div>
+<img 
+    src="mov2.jpg" 
+    alt="Anúncio 1" 
+    id="publiImg"
+    style="width:100%; height:100%; object-fit:cover; border-radius:6px; transition: opacity 0.7s;"
+  >
+  <div class="catalog-title">Servicos:</div>
+  <div class="catalog">
+   
+    <div class="product" data-modal="transferir">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+</svg>
+
+      Transferir<br />e-Topup
+    </div>
+    <div class="product" data-modal="melhor">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 1 0 9.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1 1 14.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+</svg>
+
+      A Melhor Oferta
+    </div>
+    <div class="product" data-modal="dados">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+</svg>
+      Plano de dados
+    </div>
+    <div class="product" data-modal="voz">
+      <svg viewBox="0 0 32 32">
+        <path d="M16 30c7.73 0 14-6.27 14-14S23.73 2 16 2 2 8.27 2 16c0 1.41.20 2.77.56 4.06C2.81 21.42 6.22 26 16 30z" fill="#fff" />
+        <circle cx="16" cy="16" r="6" fill="#bc0036" />
+      </svg>
+      Voz &amp; SMS
+    </div>
+    <div class="product" data-modal="combo" onclick="window.open('recarga.html')">
+     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+</svg>
+      Planos Movicel
+    </div>
+    
+    <div class="product" data-modal="konekta" onclick="window.open('chat.html')">
+     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+</svg>
+      Usuarios
+    </div>
+  </div>
+
+  <!-- Overlays com header na frente, full screen -->
+  <div class="overlay" id="modal-recarga" role="dialog" aria-modal="true" aria-labelledby="title-recarga">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-recarga">Recarga</span>
+    </div>
+    <div class="overlay-content">
+      <p>Escolha a forma de recarregar seu saldo Movicel.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-transferir" role="dialog" aria-modal="true" aria-labelledby="title-transferir">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-transferir">Transferir e-Topup</span>
+    </div>
+    <div class="overlay-content">
+      <p>Envie saldo para outro Movicel.</p>
+      <div class="topup-form" id="topupForm">
+  <label for="telNumber">Número Movicel </label>
+  <input type="tel" id="telNumber" name="telNumber" placeholder="Insira o número destino" pattern="\d{9}" maxlength="9" autocomplete="tel" required>
+
+  <label for="topupValue">Valor — mínimo 50, máximo 500</label>
+  <input type="number" id="topupValue" name="topupValue" placeholder="Ex: 100" min="50" max="500" required>
+
+  <button type="button" id="btnSendTopup">Enviar Saldo</button>
+  <div class="topup-message" id="topupMessage"></div>
+</div>
+<div id="toast"></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-melhor" role="dialog" aria-modal="true" aria-labelledby="title-melhor">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-melhor">A Melhor Oferta</span>
+    </div>
+    <div class="overlay-content">
+      <p>Veja promoções e ofertas especiais Movicel.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-dados" role="dialog" aria-modal="true" aria-labelledby="title-dados">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-dados">Plano de dados</span>
+    </div>
+    <div class="overlay-content">
+  <div class="container-botoes-fixos">
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*100%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">100 MB</span>
+      <span class="dados-plano">Preço: 100 Kz / Dia</span>
+    </span>
+  </button>
+   <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*100%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">200 MB</span>
+      <span class="dados-plano">Preço: 200 Kz / Dia</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*400%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">500 MB</span>
+      <span class="dados-plano">Preço: 400 Kz / Dia</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*700%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">1 GB</span>
+      <span class="dados-plano">Preço: 700 Kz / Dia</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*350%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">400 MB</span>
+      <span class="dados-plano">Preço: 350 Kz / 7 Dias</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*1000%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">1 GB</span>
+      <span class="dados-plano">Preço: 1.000 Kz / 15 Dias</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*2000%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">2 GB</span>
+      <span class="dados-plano">Preço: 2.000 Kz / 30 Dias</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*5000%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">6 GB</span>
+      <span class="dados-plano">Preço: 5.000 Kz / 30 Dias</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*8000%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">10 GB</span>
+      <span class="dados-plano">Preço: 8.000 Kz / 30 Dias</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*10000%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">15 GB</span>
+      <span class="dados-plano">Preço: 10.000 Kz / 30 Dias</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*18000%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">30 GB</span>
+      <span class="dados-plano">Preço: 18.000 Kz / 30 Dias</span>
+    </span>
+  </button>
+
+  <button class="btn-ativar-plano" onclick="window.location.href='tel:*200*32000%23'">
+    <span class="icone-plano">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="white" width="24" height="24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 0 1 1.06 0Z" />
+      </svg>
+    </span>
+    <span class="info-plano">
+      <span class="nome-plano">60 GB</span>
+      <span class="dados-plano">Preço: 32.000 Kz / 30 Dias</span>
+    </span>
+  </button>
+</div>
+
+<style>
+  .container-botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+  }
+  .btn-ativar-plano {
+    flex: 1 1 140px;
+    max-width: 48%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: #bc0036;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    box-shadow: 0 4px 8px rgba(188, 0, 54, 0.5);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.9rem;
+    user-select: none;
+    transition: background-color 0.3s ease;
+  }
+  .btn-ativar-plano:hover {
+    background-color: #9a002a;
+  }
+  .icone-plano svg {
+    display: block;
+  }
+  .info-plano {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+  .nome-plano {
+    font-size: 1em;
+    font-weight: 800;
+  }
+  .dados-plano {
+    font-weight: 500;
+    font-size: 0.85em;
+    opacity: 0.85;
+    margin-top: 2px;
+  }
+  
+  /* Responsivo: full width botão em telas pequenas */
+  @media (max-width: 420px) {
+    .btn-ativar-plano {
+      max-width: 100%;
+      flex-basis: 100%;
+    }
+  }
+</style>
+
+</div>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-voz" role="dialog" aria-modal="true" aria-labelledby="title-voz">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-voz">Voz &amp; SMS</span>
+    </div>
+    <div class="overlay-content">
+      <p>Planos para chamadas e mensagens.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-combo" role="dialog" aria-modal="true" aria-labelledby="title-combo">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-combo">Plano Mix</span>
+    </div>
+    <div class="overlay-content">
+      <p>Packs integrados Voz, SMS e Dados.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-favoritos" role="dialog" aria-modal="true" aria-labelledby="title-favoritos">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-favoritos">Favoritos</span>
+    </div>
+    <div class="overlay-content">
+      <p>Gestão fácil dos seus serviços favoritos.</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="modal-konekta" role="dialog" aria-modal="true" aria-labelledby="title-konekta">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-konekta">Konekta</span>
+    </div>
+    <div class="overlay-content">
+      <p>Plataforma de serviços digitais Movicel.</p>
+    </div>
+  </div>
+
+  <!-- Overlay Perfil Full Screen -->
+  <div class="overlay" id="modal-perfil" role="dialog" aria-modal="true" aria-labelledby="title-perfil">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-perfil">Meu Perfil</span>
+    </div>
+    <div class="overlay-content">
+      <div class="perfil-info">
+        <div class="perfil-nome" id="nomeUsuario"></div>
+        <div class="perfil-num" id="emailUsuario"></div>
+      </div>
+      <div class="perfil-actions">
+        <button class="perfil-action-btn" data-open="modal-cancel-planos">Cancelamento de Planos</button>
+        <button class="perfil-action-btn" onclick="alert('Consulta de Números!')">Consulta de Números</button>
+        <button class="perfil-action-btn" onclick="alert('Pedir Adianta!')">Pedir Adianta</button>
+        <button class="perfil-action-btn" id="btnAbrirDialogo">Pedir Liga Só</button>
+      </div>
+    </div>
+  </div>
+<!-- Dialog full screen estilo Android -->
+<div id="dialogoFull" class="dialogo-fullscreen" hidden role="dialog" aria-modal="true" aria-labelledby="dialogoTitulo" aria-describedby="dialogoDescricao">
+  <div class="dialogo-conteudo">
+    <header class="dialogo-header">
+      <h2 id="dialogoTitulo">Para quem deseja mandar liga Só?</h2>
+      <button class="dialogo-fechar" aria-label="Fechar diálogo"><svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke-width="1.5"
+  style="stroke: white;"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M15.75 17.25L12 21L8.25 17.25M12 21V3" />
+</svg>
+</button>
+    </header>
+
+    <section id="dialogoDescricao" class="dialogo-corpo">
+      <div id="opcoesContainter">
+        <button class="btn-opcao" data-opcao="suporte">Suporte do Aplicativo</button>
+        <button class="btn-opcao" data-opcao="outraPessoa">Outra Pessoa</button>
+      </div>
+
+      <div id="inputNumeroContainer" hidden>
+        <label for="inputNumeroDialogo">Digite o número (9 dígitos, começando com 91 ou 99):</label>
+        <input type="tel" id="inputNumeroDialogo" pattern="^(91|99)\d{7}$" maxlength="9" inputmode="numeric" autocomplete="off" placeholder="Ex: 912345678" />
+        <div class="dialogo-actions">
+          <button id="btnLigarDialogo" disabled>Ligar</button>
+          <button id="btnCancelarDialogo">Cancelar</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+  <!-- Overlay Cancelamento de Planos Full Screen -->
+  <div class="overlay" id="modal-cancel-planos" role="dialog" aria-modal="true" aria-labelledby="title-cancel-planos">
+    <div class="overlay-header">
+      <button class="overlay-back-btn" aria-label="Voltar" data-close>&#x2190;</button>
+      <span id="title-cancel-planos">Cancelamento de Planos</span>
+    </div>
+    <div class="overlay-content">
+      <p>Aqui poderá gerir o cancelamento dos seus planos Movicel.</p>
+      <p>Conteúdo personalizado para controlar os planos.</p>
+    </div>
+  </div>
+
+  <!-- Footer com dois botões -->
+  <div class="footer">
+    <button class="footer-btn" id="btn-gestao" aria-label="Ir para Gestão">
+      <svg viewBox="0 0 32 32">
+        <circle cx="16" cy="16" r="13" stroke="#fff" stroke-width="2" fill="none" /><rect x="14" y="9" width="4" height="14" rx="2" fill="#fff" />
+      </svg>
+      Gestão
+    </button>
+    <button class="footer-btn" id="btn-perfil" aria-label="Ir para Perfil">
+      <svg viewBox="0 0 32 32">
+        <circle cx="16" cy="13" r="7" fill="none" stroke="#fff" stroke-width="2" /><rect x="8" y="23" width="16" height="5" rx="2.5" fill="#fff" />
+      </svg>
+      Perfil
+    </button>
+  </div>
+
+  <!-- Drawer menu lateral -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <nav class="drawer" id="drawer" aria-label="Menu lateral">
+    <div class="drawer-header">Menu</div>
+    <div class="drawer-content">
+      <div class="drawer-info">Versão 1.0.0</div>
+      <div class="drawer-footer">
+        <button class="drawer-btn"  id="btnLogout" aria-label="Sair da conta">Terminar Sessão</button>
+        
+      </div>
+    </div>
+  </nav>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCE_vGty5XsV1YqdCi49Ck2xJDSFq284wc",
+    authDomain: "cliente-movicel.firebaseapp.com",
+    databaseURL: "https://cliente-movicel-default-rtdb.firebaseio.com",
+    projectId: "cliente-movicel",
+    storageBucket: "cliente-movicel.firebasestorage.app",
+    messagingSenderId: "215414688375",
+    appId: "1:215414688375:web:2c7d20a0c03c4c0fcfd472",
+    measurementId: "G-7F1RGP9GHV"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  const formLogin = document.getElementById("formLoginAuth");
+  const loginAuthError = document.getElementById("loginAuthError");
+  const formCreate = document.getElementById("formCreateAccount");
+  const createAccountError = document.getElementById("createAccountError");
+  const btnLogout = document.getElementById("btnLogout");
+  const btnBackCreateAccount = document.getElementById("btnBackCreateAccount");
+  const authTitle = document.getElementById("authTitle");
+  const toCreateAccountLink = document.getElementById("toCreateAccount");
+  const toLoginLink = document.getElementById("toLogin");
+  const authContainer = document.getElementById("authContainer");
+  const toastContainer = document.getElementById("toast-container");
+
+  const LS_NAME = "nomeUsuario";
+  const LS_EMAIL = "emailUsuario";
+
+  function showToast(msg, color = '#bc0036') {
+    const toast = document.createElement('div');
+    toast.className = "toast";
+    toast.style.background = color;
+    toast.innerText = msg;
+    toastContainer.appendChild(toast);
+    setTimeout(() => { toast.remove(); }, 4000);
+  }
+
+  function atualizarPerfil() {
+    const nomeEl = document.getElementById("nomeUsuario");
+    const emailEl = document.getElementById("emailUsuario");
+    if (nomeEl) nomeEl.textContent = localStorage.getItem(LS_NAME) || "nomeUsuario";
+    if (emailEl) emailEl.textContent = localStorage.getItem(LS_EMAIL) || "emailUsuario";
+  }
+
+  function showCreateAccount() {
+    formLogin.style.display = "none";
+    formCreate.style.display = "flex";
+    loginAuthError.classList.remove("visible");
+    createAccountError.classList.remove("visible");
+    authTitle.textContent = "Criar Conta Movicel";
+    toCreateAccountLink.style.display = "none";
+    toLoginLink.style.display = "inline";
+  }
+
+  function showLogin() {
+    formLogin.style.display = "flex";
+    formCreate.style.display = "none";
+    loginAuthError.classList.remove("visible");
+    createAccountError.classList.remove("visible");
+    authTitle.textContent = "Login Movicel";
+    toCreateAccountLink.style.display = "inline";
+    toLoginLink.style.display = "none";
+  }
+
+  // Links de alternância
+  toCreateAccountLink.onclick = showCreateAccount;
+  toLoginLink.onclick = showLogin;
+  btnBackCreateAccount.onclick = showLogin;
+
+  btnLogout.style.display = "none";
+  btnLogout.onclick = async () => {
+    try {
+      await signOut(auth);
+      
+      localStorage.removeItem(LS_EMAIL);
+      btnLogout.style.display = "none";
+      showLogin();
+      showToast("Você saiu com sucesso.");
+      atualizarPerfil();
+      authContainer.classList.remove("hide");
+    } catch (error) {
+      showToast("Erro ao sair: " + error.message, "#a01919");
+    }
+  };
+
+  // Validações e submit criar conta
+  formCreate.addEventListener("submit", async (evt) => {
+    evt.preventDefault();
+    createAccountError.classList.remove("visible");
+    createAccountError.textContent = "";
+
+    const nomeVal = formCreate.inputNome.value.trim();
+    const emailVal = formCreate.inputEmail.value.trim();
+    const senhaVal = formCreate.inputSenha.value.trim();
+    if (nomeVal.length < 3) {
+      createAccountError.textContent = "O nome deve conter ao menos 3 caracteres.";
+      createAccountError.classList.add("visible");
+      return;
+    }
+    if (!/.+@gmail\.com$/i.test(emailVal)) {
+      createAccountError.textContent = "O e-mail deve ser válido e do Gmail.";
+      createAccountError.classList.add("visible");
+      return;
+    }
+    if (!/^\d{6}$/.test(senhaVal)) {
+      createAccountError.textContent = "A senha deve conter exatamente 6 dígitos numéricos.";
+      createAccountError.classList.add("visible");
+      return;
+    }
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, emailVal, senhaVal);
+      localStorage.setItem(LS_NAME, nomeVal);
+      localStorage.setItem(LS_EMAIL, userCredential.user.email);
+      atualizarPerfil();
+      showToast("Conta criada com sucesso! Bem-vindo(a), " + nomeVal);
+      btnLogout.style.display = "inline-block";
+      formLogin.style.display = "none";
+      formCreate.style.display = "none";
+      authTitle.textContent = "";
+      document.getElementById("authContainer").classList.add("hide");
+      setTimeout(()=>{ authContainer.style.display = "none"; }, 400);
+    } catch (error) {
+      let msg = "Falha ao criar conta.";
+      if (error.code === 'auth/email-already-in-use') msg = "Este e-mail já está cadastrado.";
+      else if (error.code === 'auth/invalid-email') msg = "O e-mail informado não é válido.";
+      else if (error.code === 'auth/weak-password') msg = "Senha muito fraca (use 6 dígitos numéricos).";
+      else if (error.message) msg = error.message;
+      createAccountError.textContent = msg;
+      createAccountError.classList.add("visible");
+    }
+  });
+
+  // Validações e submit login
+  formLogin.addEventListener("submit", async (evt) => {
+    evt.preventDefault();
+    loginAuthError.textContent = "";
+    loginAuthError.classList.remove("visible");
+
+    const emailVal = formLogin.loginEmailAuth.value.trim();
+    const senhaVal = formLogin.loginPasswordAuth.value.trim();
+
+    if (!emailVal) {
+      loginAuthError.textContent = "Informe o e-mail.";
+      loginAuthError.classList.add("visible");
+      return;
+    }
+    if (!/^\d{6}$/.test(senhaVal)) {
+      loginAuthError.textContent = "A senha deve conter 6 dígitos numéricos.";
+      loginAuthError.classList.add("visible");
+      return;
+    }
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, emailVal, senhaVal);
+      if (!localStorage.getItem(LS_NAME)) localStorage.setItem(LS_NAME, "Usuário");
+      localStorage.setItem(LS_EMAIL, userCredential.user.email);
+      atualizarPerfil();
+      showToast("Login efetuado com sucesso!");
+      btnLogout.style.display = "inline-block";
+      formLogin.style.display = "none";
+      formCreate.style.display = "none";
+      authTitle.textContent = "";
+      document.getElementById("authContainer").classList.add("hide");
+      setTimeout(()=>{ authContainer.style.display = "none"; }, 400);
+    } catch (error) {
+      let msg = "Falha no login.";
+      if (error.code === 'auth/invalid-credential' || error.code === "auth/wrong-password") msg = "Senha incorreta.";
+      else if (error.code === 'auth/user-not-found') msg = "Usuário não encontrado.";
+      else if (error.message) msg = error.message;
+      loginAuthError.textContent = msg;
+      loginAuthError.classList.add("visible");
+    }
+  });
+
+  // Sincroniza UI com estado da autenticação
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      atualizarPerfil();
+      btnLogout.style.display = "inline-block";
+      formLogin.style.display = "none";
+      formCreate.style.display = "none";
+      authTitle.textContent = "";
+      document.getElementById("authContainer").classList.add("hide");
+      setTimeout(()=>{ authContainer.style.display = "none"; }, 400);
+    } else {
+      btnLogout.style.display = "none";
+      showLogin();
+      authContainer.style.display = "flex";
+      setTimeout(()=>{ authContainer.classList.remove("hide"); }, 20);
+    }
+  });
+
+  // Inicialização da UI
+  (function init() {
+    if (auth.currentUser) {
+      atualizarPerfil();
+      btnLogout.style.display = "inline-block";
+      formLogin.style.display = "none";
+      formCreate.style.display = "none";
+      authTitle.textContent = "";
+      document.getElementById("authContainer").classList.add("hide");
+      setTimeout(()=>{ authContainer.style.display = "none"; }, 400);
+    } else {
+      btnLogout.style.display = "none";
+      showLogin();
+    }
+  })();
+</script>
+  <script>
+    const overlays = new Set();
+    document.querySelectorAll(".overlay").forEach((el) => overlays.add(el));
+
+    const drawer = document.getElementById("drawer");
+    const drawerBackdrop = document.getElementById("drawer-backdrop");
+    const hamburger = document.querySelector(".hamburger");
+
+    // Abrir overlay específico e fechar outros
+    function openOverlay(id) {
+      overlays.forEach((overlay) => {
+        if (overlay.id === id) {
+          overlay.classList.add("active");
+          document.body.style.overflow = "hidden";
+          const firstFocusable = overlay.querySelector("button, [tabindex], input, select, textarea");
+          if (firstFocusable) firstFocusable.focus();
+        } else {
+          overlay.classList.remove("active");
+        }
+      });
+      closeDrawer(); // fecha drawer ao abrir overlay para evitar sobreposição
+    }
+
+    // Fechar todos overlays
+    function closeOverlay() {
+      overlays.forEach((overlay) => overlay.classList.remove("active"));
+      document.body.style.overflow = "";
+    }
+
+    // Abrir overlays produtos ao clicar nos quadrados
+    document.querySelectorAll(".product").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const modalId = "modal-" + btn.dataset.modal;
+        openOverlay(modalId);
+      });
+    });
+
+    // Botões do footer Gestão e Perfil
+    document.getElementById("btn-gestao").onclick = () => {
+      closeOverlay();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    document.getElementById("btn-perfil").onclick = () => {
+         openOverlay("modal-perfil");
+    };
+
+    // Clicar fora do conteúdo em overlay fecha overlay
+    overlays.forEach((overlay) => {
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeOverlay();
+      });
+      overlay.querySelectorAll("[data-close]").forEach((btn) => {
+        btn.addEventListener("click", closeOverlay);
+      });
+    });
+
+    // Botão voltar no perfil abre overlay cancelamento de planos
+    document.querySelectorAll(".perfil-action-btn").forEach((btn) => {
+      const targetModal = btn.dataset.open;
+      if (targetModal) {
+        btn.addEventListener("click", () => {
+          openOverlay(targetModal);
+        });
+      }
+    });
+
+    // Drawer lateral
+    function openDrawer() {
+      drawer.classList.add("active");
+      drawerBackdrop.classList.add("active");
+      document.body.style.overflow = "hidden";
+      document.getElementById("btn-sair").focus();
+      closeOverlay();
+    }
+    function closeDrawer() {
+      drawer.classList.remove("active");
+      drawerBackdrop.classList.remove("active");
+      document.body.style.overflow = "";
+    }
+
+    hamburger.addEventListener("click", openDrawer);
+    hamburger.addEventListener("keydown", (e) => {
+      if (["Enter", " ", "Spacebar"].includes(e.key)) {
+        e.preventDefault();
+        openDrawer();
+      }
+    });
+    drawerBackdrop.addEventListener("click", closeDrawer);
+    document.getElementById("btn-sair").addEventListener("click", () => {
+      closeDrawer();
+      alert("Você saiu do app!");
+    });
+
+    // Swipe para fechar drawer
+ let touchStartX = 0;
+let currentTranslateX = 0;
+let isDragging = false;
+
+drawer.addEventListener(
+  "touchstart",
+  (e) => {
+    if (e.touches.length === 1 && drawer.classList.contains("active")) {
+      touchStartX = e.touches[0].clientX;
+      isDragging = true;
+      drawer.style.transition = "none"; // interrompe transição para arrastar
+    }
+  },
+  { passive: true }
+);
+
+drawer.addEventListener(
+  "touchmove",
+  (e) => {
+    if (!isDragging) return;
+    const touchX = e.touches[0].clientX;
+    let deltaX = touchX - touchStartX;
+    // Restrição para não arrastar para direita
+    if (deltaX < 0) {
+      currentTranslateX = deltaX;
+      drawer.style.transform = `translateX(${currentTranslateX}px)`;
+    }
+  },
+  { passive: true }
+);
+
+drawer.addEventListener("touchend", (e) => {
+  if (!isDragging) return;
+  isDragging = false;
+  drawer.style.transition = "transform 0.3s ease";
+  // Se arrastou mais de 90px para esquerda, fecha drawer
+  if (currentTranslateX < -90) {
+    // animação fecha
+    drawer.style.transform = `translateX(-100%)`;
+    // após transição remove classe active para esconder de fato
+    setTimeout(() => {
+      drawer.classList.remove("active");
+      drawer.style.transform = "";
+      drawerBackdrop.classList.remove("active");
+      document.body.style.overflow = "";
+    }, 300);
+  } else {
+    // retorna ao estado normal
+    drawer.style.transform = "translateX(0)";
+  }
+  currentTranslateX = 0;
+});
+
+  </script>
+<script>
+  (function () {
+    const btnSend = document.getElementById("btnSendTopup");
+    const telInput = document.getElementById("telNumber");
+    const valInput = document.getElementById("topupValue");
+    const msg = document.getElementById("topupMessage");
+    const storageKey = "movicel_topup_last_date";
+    const toastEl = document.getElementById("toast");
+    let toastTimeout = null;
+
+    // Função para formatar a data para comparação (YYYY-MM-DD)
+    function getTodayDateString() {
+      const d = new Date();
+      return d.toISOString().split("T")[0];
+    }
+
+    // Verifica se já enviou hoje
+    function checkIfSentToday() {
+      const lastDate = localStorage.getItem(storageKey);
+      const today = getTodayDateString();
+      return lastDate === today;
+    }
+
+    // Atualiza estado do botão conforme envio diário
+    function updateButtonState() {
+      if (checkIfSentToday()) {
+        btnSend.disabled = true;
+        msg.textContent = "Só é possível enviar saldo uma vez por dia. Tente novamente amanhã.";
+      } else {
+        btnSend.disabled = false;
+        msg.textContent = "";
+      }
+    }
+
+    // Função do toast, mostra mensagem e esconde automático
+    function showToast(text) {
+      if (toastTimeout) {
+        clearTimeout(toastTimeout);
+      }
+      toastEl.textContent = text;
+      toastEl.classList.add("show");
+      toastTimeout = setTimeout(() => {
+        toastEl.classList.remove("show");
+      }, 3000);
+    }
+
+    // Valida e envia o saldo
+    btnSend.addEventListener("click", () => {
+      const numero = telInput.value.trim();
+      const valor = parseInt(valInput.value, 10);
+
+      // Validação simples número: 9 dígitos numéricos
+      const numPattern = /^\d{9}$/;
+      if (!numPattern.test(numero)) {
+        showToast("Por favor, insira um número válido Movicel com 9 dígitos.");
+        telInput.focus();
+        return;
+      }
+
+      // Validação valor dentro do range
+      if (isNaN(valor) || valor < 50) {
+        showToast("Valor mínimo permitido é 50 Kz.");
+        valInput.focus();
+        return;
+      }
+      if (valor > 500) {
+        showToast("Valor máximo permitido é 500 Kz.");
+        valInput.focus();
+        return;
+      }
+
+      // Verifica envio diário
+      if (checkIfSentToday()) {
+        showToast("Você já enviou saldo hoje. Aguarde até amanhã para enviar novamente.");
+        return;
+      }
+
+      // Monta o código USSD com escape do #
+      const ussdCode = `*677*${numero}*${valor}%23`;
+
+      // Salva a data do envio
+      localStorage.setItem(storageKey, getTodayDateString());
+
+      // Atualiza o estado do botão para desabilitar novos envios
+      updateButtonState();
+
+      // Limpa inputs
+      telInput.value = "";
+      valInput.value = "";
+
+      // Redireciona para o discador com o código USSD (abre o app telefone)
+      window.location.href = `tel:${ussdCode}`;
+    });
+
+    // Inicializa estado do botão ao carregar
+    updateButtonState();
+  })();
+</script>
+<script>
+  // Troca automática de imagens do card de publicidade
+  document.addEventListener('DOMContentLoaded', function(){
+    var imagens = [
+      "mov2.jpg", // Substitua pelos caminhos reais
+      "mov3.jpg",
+      "mov.jpg"
+    ];
+    var idx = 0;
+    var publiImg = document.getElementById('publiImg');
+    setInterval(function(){
+      publiImg.style.opacity = 0;
+      setTimeout(function(){
+        idx = (idx + 1) % imagens.length;
+        publiImg.src = imagens[idx];
+        publiImg.style.opacity = 1;
+      }, 700); // tempo da transição de fade (deve combinar com o CSS transition)
+    }, 6000); // a cada 4 segundos (mude o tempo à vontade)
+  });
+</script>
+<script>
+// Elementos
+  const btnAbrir = document.getElementById('btnAbrirDialogo');
+  const dialogo = document.getElementById('dialogoFull');
+  const btnFechar = dialogo.querySelector('.dialogo-fechar');
+  const opcoesContainer = document.getElementById('opcoesContainter');
+  const inputContainer = document.getElementById('inputNumeroContainer');
+  const inputNumero = document.getElementById('inputNumeroDialogo');
+  const btnLigar = document.getElementById('btnLigarDialogo');
+  const btnCancelarInput = document.getElementById('btnCancelarDialogo');
+
+  // Abrir diálogo
+  btnAbrir.addEventListener('click', () => {
+    dialogo.hidden = false;
+    showOpcoes();
+    inputNumero.value = '';
+    btnLigar.disabled = true;
+    inputNumero.removeAttribute('data-numero');
+    inputNumero.focus();
+  });
+
+  // Fechar diálogo
+  function fecharDialogo() {
+    dialogo.hidden = true;
+  }
+  btnFechar.addEventListener('click', fecharDialogo);
+
+  // Fechar clicando no overlay (fora do conteúdo)
+  dialogo.addEventListener('click', e => {
+    if (e.target === dialogo) {
+      fecharDialogo();
+    }
+  });
+
+  // Fechar com ESC
+  document.addEventListener('keydown', e => {
+    if (!dialogo.hidden && e.key === 'Escape') fecharDialogo();
+  });
+
+  // Mostrar opções, esconder input
+  function showOpcoes() {
+    opcoesContainer.hidden = false;
+    inputContainer.hidden = true;
+  }
+
+  // Clique nas opções
+  opcoesContainer.addEventListener('click', e => {
+    if (!e.target.classList.contains('btn-opcao')) return;
+
+    const escolha = e.target.getAttribute('data-opcao');
+    if (escolha === 'suporte') {
+      // Ligar direto para suporte
+      window.location.href = 'tel:*677%23';
+      fecharDialogo();
+    } else if (escolha === 'outraPessoa') {
+      opcoesContainer.hidden = true;
+      inputContainer.hidden = false;
+      inputNumero.value = '';
+      btnLigar.disabled = true;
+      inputNumero.focus();
+    }
+  });
+
+  // Validação input 9 dígitos começando com 91 ou 99
+  inputNumero.addEventListener('input', () => {
+    let val = inputNumero.value.replace(/\D/g, ''); // remove não digitos
+    if(val.length > 9) val = val.slice(0, 9);
+    inputNumero.value = val;
+
+    const valido = /^(91|99)\d{7}$/.test(val);
+    btnLigar.disabled = !valido;
+
+    if(valido) {
+      btnLigar.setAttribute('data-numero', val);
+    } else {
+      btnLigar.removeAttribute('data-numero');
+    }
+  });
+
+  // Clique no botão ligar
+  btnLigar.addEventListener('click', () => {
+    const num = btnLigar.getAttribute('data-numero');
+    if(num) {
+      const telLink = `tel:*677*${encodeURIComponent(num)}%23`;
+      window.location.href = telLink;
+      fecharDialogo();
+    }
+  });
+
+  // Cancelar input - retorna para opções
+  btnCancelarInput.addEventListener('click', () => {
+    showOpcoes();
+    inputNumero.value = '';
+    btnLigar.disabled = true;
+    btnLigar.removeAttribute('data-numero');
+  });
+</script>
+</body>
+</html>

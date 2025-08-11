@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Recargas Movicel - Planos</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 12px 0;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: #fff6f6;
+    color: #3b0000;
+    min-height: 100vh;
+  }
+  :root {
+    --movicel-red-light: #fef1f1;
+    --movicel-red-normal: #c80000;
+    --movicel-red-dark: #8b0000;
+    --movicel-text-light: #fff6f6;
+  }
+  @keyframes bounce {
+    0%, 80%, 100% {
+      opacity: 0.4;
+      transform: translateY(0);
+    }
+    40% {
+      opacity: 1;
+      transform: translateY(-10px);
+    }
+  }
+ #loadingSpinner {
+  display: none;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px auto 20px auto;
+  height: 24px;
+}
+#loadingSpinner .dot {
+  width: 14px;
+  height: 14px;
+  background-color: var(--movicel-red-normal);
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: bounce 1.2s infinite ease-in-out;
+}
+#loadingSpinner .dot:nth-child(1) { animation-delay: 0s; }
+#loadingSpinner .dot:nth-child(2) { animation-delay: 0.2s; }
+#loadingSpinner .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-10px);
+  }
+}
+
+  header {
+    position: sticky; top: 0;
+    background: #b3002d;
+    color: var(--movicel-text-light);
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    font-weight: 700;
+    font-size: 1.25rem;
+    user-select: none;
+    z-index: 9999;
+  }
+  header button {
+    background: transparent;
+    border: none;
+    padding: 8px 14px;
+    cursor: pointer;
+    color: var(--movicel-text-light);
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+  }
+  header button:focus {
+    background: transparent;
+  }
+  header .titulo {
+    flex-grow: 1;
+    text-align: left;
+    letter-spacing: 0.07rem;
+  }
+  #container {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 12px 18px 28px 18px;
+  }
+  #status {
+    margin-top: 6px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--movicel-red-dark);
+    min-height: 36px;
+    user-select: none;
+    font-size: 1rem;
+  }
+  /* Login Form */
+  #loginForm {
+    max-width: 480px;
+    margin: 28px auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--movicel-red-light);
+    padding: 24px 22px 28px 22px;
+    border-radius: 14px;
+    box-shadow: 0 0 18px #c5222244;
+  }
+  #loginForm label {
+    font-weight: 700;
+    color: var(--movicel-red-dark);
+  }
+  #loginForm input {
+    padding: 14px 16px;
+    font-size: 1.1rem;
+    border: 2px solid var(--movicel-red-dark);
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+  #loginForm input:focus {
+    border-color: var(--movicel-red-normal);
+    box-shadow: 0 0 8px var(--movicel-red-normal);
+  }
+  #loginForm button {
+    margin-top: 10px;
+    padding: 16px 0;
+    font-size: 1.2rem;
+    font-weight: 800;
+    border: none;
+    border-radius: 20px;
+    background: var(--movicel-red-normal);
+    color: var(--movicel-text-light);
+    cursor: pointer;
+    box-shadow: 0 0 16px #b5181811;
+    transition: background 0.3s ease;
+    user-select: none;
+  }
+  #loginForm button:hover, #loginForm button:focus {
+    background: var(--movicel-red-dark);
+    outline: none;
+  }
+  #loginErrorMsg {
+    color: #b30000;
+    font-weight: 700;
+    min-height: 24px;
+  }
+  /* Planos lista */
+  #listaPlanos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 14px;
+  }
+  #listaPlanos button {
+    flex: 1 1 160px;
+    min-width: 140px;
+    background: linear-gradient(to bottom right, var(--movicel-red-normal), var(--movicel-red-dark));
+    border: none;
+    border-radius: 14px;
+    padding: 18px 20px;
+    color: var(--movicel-text-light);
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    user-select: none;
+  }
+  #listaPlanos button:hover,
+  #listaPlanos button:focus {
+    background: linear-gradient(to bottom right, #ff4949, #a40000);
+    outline: none;
+  }
+  #listaPlanos .infoPlan {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    color: var(--movicel-text-light);
+    user-select: none;
+  }
+  /* Overlay edição full screen */
+  #overlayEditor {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #4a0000;
+    color: var(--movicel-text-light);
+    display: none;
+    flex-direction: column;
+    z-index: 10000;
+  }
+  #overlayEditor header {
+    flex-shrink: 0;
+    background-color: #b3002d;
+    color: white;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0 16px;
+    box-sizing: border-box;
+  }
+  #overlayEditor header button {
+    color: var(--movicel-text-light);
+    font-size: 1.8rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    margin-right: 0%;
+  }
+  #overlayEditor header h2 {
+    font-size: 1.2rem;    
+    flex-grow: 1;
+    text-align: center;
+    margin: 0;
+  }
+  #editorContent {
+    flex-grow: 1;
+    padding: 22px 28px 28px 28px;
+    overflow-y: auto;
+  }
+  #formEdicao {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 460px;
+    margin: 0 auto;
+  }
+  #formEdicao label {
+    font-weight: 600;
+  }
+  #formEdicao input[type="text"],
+  #formEdicao input[type="number"] {
+    padding: 16px 18px;
+    border-radius: 8px;
+    border: none;
+    font-size: 1.15rem;
+    background: #7a0f0f;
+    color: var(--movicel-text-light);
+    outline: none;
+  }
+  #formEdicao input[type="text"]:focus,
+  #formEdicao input[type="number"]:focus {
+    outline: 2px solid #ff9182;
+  }
+  #formEdicao button {
+    background: var(--movicel-red-dark);
+    color: white;
+    font-weight: 700;
+    padding: 18px 0;
+    border: none;
+    border-radius: 20px;
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: background 0.4s ease;
+    user-select: none;
+  }
+  #formEdicao button:hover,
+  #formEdicao button:focus {
+    background: #ff3d3d;
+    outline: none;
+  }
+  #formErro {
+    color: #ff7a7a;
+    font-weight: 700;
+    min-height: 24px;
+    margin-top: 8px;
+    user-select: none;
+  }
+  #planosUsuarioList {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  #planosUsuarioList .planoUserBtn {
+    background: #ffb3b3;
+    border-radius: 16px;
+    padding: 14px 20px;
+    font-weight: 700;
+    color: #650000;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #planosUsuarioList .planoUserBtn:hover,
+  #planosUsuarioList .planoUserBtn:focus {
+    background: #ff7a7a;
+    color: white;
+    outline: none;
+  }
+  #planosUsuarioList .deleteBtn {
+    background: var(--movicel-red-dark);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-weight: 900;
+    padding: 5px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 1.2rem;
+    transition: background 0.3s ease;
+  }
+  #planosUsuarioList .deleteBtn:hover,
+  #planosUsuarioList .deleteBtn:focus {
+    background: #9c1414;
+    outline: none;
+  }
+  @media (max-width: 480px) {
+    #listaPlanos {
+      flex-direction: column;
+      gap: 20px;
+      padding: 0 12px;
+    }
+    #listaPlanos button {
+      flex: 1 0 100%;
+    }
+    #formEdicao {
+      max-width: 100%;
+    }
+    #planosUsuarioList .planoUserBtn {
+      font-size: 1rem;
+      padding: 12px 14px;
+    }
+    #planosUsuarioList .deleteBtn {
+      font-size: 1rem;
+      padding: 4px 10px;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+    <button aria-label="Voltar para a página inicial" id="btnVoltar">&#8592;</button>
+  <div class="titulo" aria-live="polite" aria-atomic="true">Planos Movicel</div>
+  <button aria-label="Abrir editor de planos" id="btnAbrirEditor" title="Criar e editar seus planos">
+     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke="transparent" stroke-width="1.5" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+</svg>
+  </button>
+</header>
+
+<div id="status" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="loadingSpinner" aria-hidden="true" role="img" aria-label="Carregando">
+  <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+</div>
+
+<!-- Login Form -->
+<form id="loginForm" aria-label="Login com e-mail e senha" novalidate autocomplete="off" style="display:none; max-width:480px; margin: 28px auto;">
+  <label for="emailInput">E-mail</label>
+  <input id="emailInput" name="emailInput" type="email" autocomplete="username" required placeholder="cliente-XXXXXXXXX@gmail.com" />
+  <label for="senhaInput">Senha</label>
+  <input id="senhaInput" name="senhaInput" type="password" autocomplete="current-password" required minlength="6" placeholder="Senha com mínimo 6 caracteres" />
+  <button type="submit" id="loginBtn">Entrar / Criar Conta</button>
+  <div id="loginErrorMsg" role="alert" aria-live="assertive"></div>
+</form>
+
+<div id="container" aria-live="polite" style="display:none;">
+  <div id="listaPlanos" aria-label="Lista de planos de recarga Movicel" role="list"></div>
+</div>
+
+<div id="overlayEditor" role="dialog" aria-modal="true" aria-labelledby="overlayTitle">
+  <header>
+    <button id="btnFecharOverlay" aria-label="Fechar editor"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="24" height="24" stroke="white" stroke-width="1.5">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 15.75 3 12m0 0 3.75-3.75M3 12h18" />
+</svg></button>
+    <h2 id="overlayTitle">Criar ou Editar Planos</h2>
+  </header>
+  <div id="editorContent">
+    <form id="formEdicao" novalidate autocomplete="off" aria-describedby="formErro">
+      <label for="editNomePlano">Nome do Plano</label>
+      <input id="editNomePlano" name="editNomePlano" type="text" required placeholder="Ex: Mix 250MB+50min+10SMS" />
+      <label for="editPrecoPlano">Preço (Kz)</label>
+      <input id="editPrecoPlano" name="editPrecoPlano" type="number" min="1" required placeholder="Ex: 200" />
+      <label for="editValidadePlano">Validade</label>
+      <input id="editValidadePlano" name="editValidadePlano" type="text" required placeholder="Ex: 7 dias" />
+      <label for="editCodigoUSSD">Código USSD</label>
+      <input id="editCodigoUSSD" name="editCodigoUSSD" type="text" required placeholder="Ex: *500*200#" />
+      <button type="submit" id="btnSalvarEdicao">Salvar Plano</button>
+      <div id="formErro" role="alert" aria-live="assertive"></div>
+    </form>
+    <section aria-label="Seus planos criados ou editáveis" style="margin-top: 36px;">
+      <h3 style="color:#ffcccc; font-weight: 600; user-select:none;">Seus planos</h3>
+      <div id="planosUsuarioList" tabindex="0" aria-live="polite"></div>
+    </section>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCE_vGty5XsV1YqdCi49Ck2xJDSFq284wc",
+    authDomain: "cliente-movicel.firebaseapp.com",
+    databaseURL: "https://cliente-movicel-default-rtdb.firebaseio.com",
+    projectId: "cliente-movicel",
+    storageBucket: "cliente-movicel.appspot.com",
+    messagingSenderId: "215414688375",
+    appId: "1:215414688375:web:2c7d20a0c03c4c0fcfd472" // Substitua pelo seu appId real!
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.database();
+  const planosRef = db.ref('planos/movicel');
+
+  const statusEl = document.getElementById('status');
+  const spinner = document.getElementById('loadingSpinner');
+  const loginForm = document.getElementById('loginForm');
+  const loginErrorMsg = document.getElementById('loginErrorMsg');
+  const container = document.getElementById('container');
+  const listaPlanos = document.getElementById('listaPlanos');
+  const overlay = document.getElementById('overlayEditor');
+  const btnAbrirEditor = document.getElementById('btnAbrirEditor');
+  const btnFecharOverlay = document.getElementById('btnFecharOverlay');
+  const planosUsuarioList = document.getElementById('planosUsuarioList');
+  const formEdicao = document.getElementById('formEdicao');
+  const inputNome = document.getElementById('editNomePlano');
+  const inputPreco = document.getElementById('editPrecoPlano');
+  const inputValidade = document.getElementById('editValidadePlano');
+  const inputCodUSSD = document.getElementById('editCodigoUSSD');
+  const btnSalvarEdicao = document.getElementById('btnSalvarEdicao');
+  const formErro = document.getElementById('formErro');
+  const btnVoltar = document.getElementById('btnVoltar');
+
+  btnVoltar.onclick = () => window.location.href = 'index.html';
+
+  let planosCache = {};
+  let user = null;
+  let editKey = null;
+  const LS_PLANOS = 'cache_planos_movicel';
+
+  function mostrarSpinner(exibir) {
+    spinner.style.display = exibir ? 'flex' : 'none';
+  }
+
+  function salvarCachePlanos(planos) {
+    try {
+      localStorage.setItem(LS_PLANOS, JSON.stringify(planos));
+    } catch(e) { 
+      console.warn(e);
+    }
+  }
+
+  function carregarCachePlanos() {
+    try {
+      const s = localStorage.getItem(LS_PLANOS);
+      return s ? JSON.parse(s) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderListaPublica(planos) {
+    listaPlanos.innerHTML = '';
+    if(!planos || Object.keys(planos).length === 0) {
+      listaPlanos.innerHTML = '<p style="color:#9c0000; text-align:center; font-weight:bold;">Nenhum plano disponível.</p>';
+      return;
+    }
+    for(const key in planos) {
+      if(!planos.hasOwnProperty(key)) continue;
+      const p = planos[key];
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.tabIndex = 0;
+      btn.innerHTML = `
+        ${p.nome}
+        <span class="infoPlan">Preço: AKZ ${p.preco}<br>Validade: ${p.validade}</span>
+      `;
+      btn.dataset.key = key;
+      btn.onclick = () => {
+        if(editKey === key) return;
+        let ussd = p.codUSSD.trim();
+        if(!ussd.endsWith('#')) ussd += '#';
+        ussd = ussd.replace(/\s+/g, '');
+        window.location.href = `tel:${encodeURIComponent(ussd)}`;
+      };
+      listaPlanos.appendChild(btn);
+    }
+  }
+
+  function renderListaUsuario(planos) {
+    planosUsuarioList.innerHTML = '';
+    if(!planos) {
+      planosUsuarioList.innerHTML = '<p style="color:#ffacac; text-align:center;">Você ainda não criou planos.</p>';
+      return;
+    }
+    const planosDoUsuario = Object.entries(planos).filter(([_, p]) => p.uid === user.uid);
+    if(planosDoUsuario.length === 0) {
+      planosUsuarioList.innerHTML = '<p style="color:#ffacac; text-align:center;">Você ainda não criou planos.</p>';
+      return;
+    }
+    planosDoUsuario.forEach(([key, p]) => {
+      const div = document.createElement('div');
+      div.className = 'planoUserBtn';
+      div.tabIndex = 0;
+      div.textContent = p.nome;
+      div.dataset.key = key;
+
+      const btnDel = document.createElement('button');
+      btnDel.className = 'deleteBtn';
+      btnDel.setAttribute('aria-label', `Excluir plano ${p.nome}`);
+      btnDel.title = `Excluir plano ${p.nome}`;
+      btnDel.textContent = '✕';
+
+      btnDel.addEventListener('click', async e => {
+        e.stopPropagation();
+        if(confirm(`Confirma a exclusão do plano "${p.nome}"?`)) {
+          try {
+            await planosRef.child(key).remove();
+            statusEl.textContent = `Plano "${p.nome}" excluído com sucesso.`;
+          } catch(err) {
+            statusEl.textContent = `Erro ao excluir: ${err.message}`;
+          }
+          if(editKey === key) limparFormEdicao();
+        }
+      });
+
+      div.addEventListener('click', () => carregarPlanoEdicao(key));
+      div.appendChild(btnDel);
+      planosUsuarioList.appendChild(div);
+    });
+  }
+
+  function limparFormEdicao() {
+    editKey = null;
+    formEdicao.reset();
+    formErro.textContent = '';
+  }
+
+  function carregarPlanoEdicao(key) {
+    if(!planosCache[key]) return;
+    const p = planosCache[key];
+    if(p.uid !== user.uid) {
+      alert('Você só pode editar seus próprios planos.');
+      return;
+    }
+    inputNome.value = p.nome || '';
+    inputPreco.value = p.preco || '';
+    inputValidade.value = p.validade || '';
+    inputCodUSSD.value = p.codUSSD || '';
+    editKey = key;
+    formErro.textContent = '';
+    inputNome.focus();
+  }
+
+  btnAbrirEditor.onclick = () => {
+    if(!user) return alert('Faça login para criar ou editar planos.');
+    overlay.style.display = 'flex';
+    limparFormEdicao();
+    renderListaUsuario(planosCache);
+  };
+
+  btnFecharOverlay.onclick = () => {
+    overlay.style.display = 'none';
+    limparFormEdicao();
+    statusEl.textContent = '';
+  };
+
+  // Controle de login form e main container
+  function toggleLoginUI(showLogin) {
+    loginForm.style.display = showLogin ? 'flex' : 'none';
+    container.style.display = showLogin ? 'none' : 'block';
+  }
+
+  // Atualiza UI após login/logout (sem mostrar email)
+  function atualizarUI(userNova) {
+    user = userNova;
+    if(user) {
+      toggleLoginUI(false);
+      statusEl.textContent = '';
+      loginErrorMsg.textContent = '';
+      // Rendera planos e lista do usuário depois
+      iniciarEscutaPlanos();
+    } else {
+      toggleLoginUI(true);
+      statusEl.textContent = '';
+      loginErrorMsg.textContent = '';
+      limparFormEdicao();
+      planosCache = {};
+      renderListaPublica(null);
+      planosUsuarioList.innerHTML = '';
+      overlay.style.display = 'none';
+    }
+  }
+
+  // Gerenciar login via formulário
+  loginForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    loginErrorMsg.textContent = '';
+    mostrarSpinner(true);
+    const email = document.getElementById('emailInput').value.trim();
+    const senha = document.getElementById('senhaInput').value;
+    if(!email) {
+      loginErrorMsg.textContent = 'Informe seu e-mail.';
+      mostrarSpinner(false);
+      return;
+    }
+    if(!senha || senha.length < 6) {
+      loginErrorMsg.textContent = 'Senha inválida (mínimo 6 caracteres).';
+      mostrarSpinner(false);
+      return;
+    }
+    try {
+      await auth.signInWithEmailAndPassword(email, senha);
+    } catch(err) {
+      if(err.code === 'auth/user-not-found') {
+        if(confirm(`Usuário não existe. Criar conta para ${email}?`)) {
+          try {
+            await auth.createUserWithEmailAndPassword(email, senha);
+          } catch(createErr) {
+            loginErrorMsg.textContent = 'Erro ao criar conta: ' + createErr.message;
+          }
+        } else {
+          loginErrorMsg.textContent = 'Login cancelado.';
+        }
+      } else {
+        loginErrorMsg.textContent = 'Erro ao autenticar: ' + err.message;
+      }
+    }
+    mostrarSpinner(false);
+  });
+
+  function iniciarEscutaPlanos() {
+    const cache = carregarCachePlanos();
+    if(cache) {
+      planosCache = cache;
+      renderListaPublica(planosCache);
+      statusEl.textContent = 'Planos carregados do cache, aguardando atualizações...';
+    }
+    planosRef.on('value', snapshot => {
+      const dados = snapshot.val() || {};
+      planosCache = dados;
+      renderListaPublica(planosCache);
+      salvarCachePlanos(planosCache);
+      statusEl.textContent = 'Planos atualizados em tempo real.';
+      if(overlay.style.display === 'flex' && user) {
+        renderListaUsuario(planosCache);
+      }
+    }, error => {
+      statusEl.textContent = 'Erro ao carregar planos: ' + error.message;
+    });
+  }
+
+  formEdicao.addEventListener('submit', async e => {
+    e.preventDefault();
+    formErro.textContent = '';
+    if(!user) {
+      alert('Você precisa estar autenticado para salvar planos.');
+      return;
+    }
+    const nome = inputNome.value.trim();
+    const preco = Number(inputPreco.value);
+    const validade = inputValidade.value.trim();
+    let codUSSD = inputCodUSSD.value.trim();
+    if(!nome) {
+      formErro.textContent = 'Informe o nome do plano.';
+      inputNome.focus();
+      return;
+    }
+    if(!preco || preco <= 0) {
+      formErro.textContent = 'Preço inválido.';
+      inputPreco.focus();
+      return;
+    }
+    if(!validade) {
+      formErro.textContent = 'Informe a validade do plano.';
+      inputValidade.focus();
+      return;
+    }
+    if(!codUSSD) {
+      formErro.textContent = 'Informe o código USSD.';
+      inputCodUSSD.focus();
+      return;
+    }
+    if(!codUSSD.endsWith('#')) codUSSD += '#';
+    codUSSD = codUSSD.replace(/\s/g, '');
+    btnSalvarEdicao.disabled = true;
+    statusEl.textContent = editKey ? 'Atualizando plano...' : 'Criando novo plano...';
+    const planoObj = { nome, preco, validade, codUSSD, uid: user.uid };
+    try {
+      if(editKey) {
+        const atual = planosCache[editKey];
+        if(atual.uid !== user.uid) {
+          alert('Você só pode editar seus próprios planos!');
+          btnSalvarEdicao.disabled = false;
+          return;
+        }
+        await planosRef.child(editKey).set(planoObj);
+      } else {
+        await planosRef.push(planoObj);
+      }
+      statusEl.textContent = 'Plano salvo com sucesso.';
+      limparFormEdicao();
+      renderListaUsuario(planosCache);
+    } catch(err) {
+      statusEl.textContent = 'Erro ao salvar plano: ' + err.message;
+    }
+    btnSalvarEdicao.disabled = false;
+  });
+
+  planosUsuarioList.addEventListener('click', e => {
+    const btn = e.target.closest('div.planoUserBtn');
+    if(!btn) return;
+    const key = btn.dataset.key;
+    carregarPlanoEdicao(key);
+  });
+
+  auth.onAuthStateChanged(usuario => {
+    atualizarUI(usuario);
+  });
+</script>
+ 
+  
+  </script>
+</body>
+</html>
+ 
