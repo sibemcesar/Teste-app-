@@ -5908,7 +5908,7 @@ if('serviceWorker' in navigator){
         allhSaveBtn.disabled = false;
         allhGenBtn.disabled = false;
         allhSaveBtnLabel.textContent = allhGetSaveBtnLabel();
-        allhSub.textContent = isSingle
+        allhSub.innerHTML = isSingle
           ? 'Sorteio das ' + hoursToRun[0] + 'h completo! <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
           : 'Sorteio completo — ' + hoursToRun.map(function(h){return h+'h';}).join(', ') + ' <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
         if(isAll) saveAllHoursDaily(allhResults);
