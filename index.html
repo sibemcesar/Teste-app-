@@ -2646,6 +2646,13 @@ if('serviceWorker' in navigator){
     <div class="welcome-card-body">
       <div class="welcome-motivation" id="welcomeMotivation">A carregar...</div>
       <button class="welcome-card-btn" id="welcomeCloseBtn"><svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="10" fill="var(--esvg-color)"/><circle cx="12" cy="12" r="6" fill="var(--surface,#f5f5f5)"/><circle cx="12" cy="12" r="2.5" fill="var(--esvg-color)"/></svg> Vamos Jogar!</button>
+      <a href="https://wa.me/244955597211?text=Feedback+N%C2%B0+da+Sorte%3A+" target="_blank" rel="noopener" style="display:block;margin-top:12px;padding:10px 14px;background:rgba(37,211,102,.12);border:1.5px solid rgba(37,211,102,.35);border-radius:12px;text-decoration:none;text-align:left">
+        <div style="font-size:.72rem;font-weight:800;color:#1faa52;letter-spacing:.5px;margin-bottom:3px;display:flex;align-items:center;gap:5px">
+          <svg viewBox="0 0 24 24" fill="#25D366" style="width:13px;height:13px;flex-shrink:0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.117.549 4.107 1.51 5.843L.057 23.667a.5.5 0 0 0 .61.61l5.788-1.437A11.945 11.945 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9a9.893 9.893 0 0 1-5.031-1.371l-.361-.214-3.735.927.955-3.645-.235-.374A9.861 9.861 0 0 1 2.1 12C2.1 6.534 6.534 2.1 12 2.1c5.466 0 9.9 4.434 9.9 9.9 0 5.466-4.434 9.9-9.9 9.9z"/></svg>
+          APP EM VERSÃO BETA
+        </div>
+        <div style="font-size:.7rem;color:var(--text2);line-height:1.5">Este app está em desenvolvimento. Partilha connosco ganhos, perdas ou sugestões — o teu feedback ajuda-nos a melhorar e a criar um app que nos faça ganhar a sério! Toca aqui para enviar.</div>
+      </a>
       <div class="welcome-card-footer" id="welcomeFooter"></div>
     </div>
   </div>
@@ -4694,157 +4701,9 @@ if('serviceWorker' in navigator){
 
   
   function analyseHour(hour, count) {
-    
-    
     var hourResults = officialResults.filter(function(r){ return r.hour === hour; });
-    
     if(hourResults.length < 1) return null;
-
-    var total = hourResults.length;
-
-    
-    
-    var DECAY = 0.80;
-    var weightedFreq = {};
-    for(var i=1;i<=90;i++) weightedFreq[i] = 0;
-    hourResults.forEach(function(r, idx){
-      var weight = Math.pow(DECAY, idx);
-      r.numbers.forEach(function(n){ weightedFreq[n] += weight; });
-    });
-
-    
-    
-    var pairBonus = {};
-    for(var n=1;n<=90;n++) pairBonus[n] = 0;
-    if(total >= 8){
-      var pairFreq = {};
-      hourResults.forEach(function(r, idx){
-        var w = Math.pow(DECAY, idx);
-        var nums = r.numbers;
-        for(var a=0;a<nums.length;a++){
-          for(var b=a+1;b<nums.length;b++){
-            var key = Math.min(nums[a],nums[b])+'-'+Math.max(nums[a],nums[b]);
-            pairFreq[key] = (pairFreq[key]||0) + w;
-          }
-        }
-      });
-      Object.keys(pairFreq).forEach(function(key){
-        var parts = key.split('-');
-        var na = parseInt(parts[0]), nb = parseInt(parts[1]);
-        pairBonus[na] += pairFreq[key];
-        pairBonus[nb] += pairFreq[key];
-      });
-      var maxPB = 0;
-      for(var n=1;n<=90;n++) if(pairBonus[n] > maxPB) maxPB = pairBonus[n];
-      if(maxPB > 0){ for(var n=1;n<=90;n++) pairBonus[n] = pairBonus[n] / maxPB; }
-    }
-
-    
-    var maxWFreq = 0;
-    for(var n=1;n<=90;n++) if(weightedFreq[n] > maxWFreq) maxWFreq = weightedFreq[n];
-    var normFreq = {}, score = {};
-    for(var n=1;n<=90;n++){
-      normFreq[n] = maxWFreq > 0 ? weightedFreq[n] / maxWFreq : 0;
-      
-      
-      var noise = (Math.random() - 0.5) * 0.15;
-      score[n] = normFreq[n] + (total >= 8 ? pairBonus[n] * 0.20 : 0) + noise;
-    }
-
-    
-    var hotThresh, coldThresh;
-    if(total <= 2){
-      
-      hotThresh = 0.01; coldThresh = -1;
-    } else if(total <= 5){
-      hotThresh = 0.50; coldThresh = 0.0;
-    } else if(total <= 10){
-      hotThresh = 0.40; coldThresh = 0.05;
-    } else if(total <= 20){
-      hotThresh = 0.30; coldThresh = 0.08;
-    } else {
-      hotThresh = 0.20; coldThresh = 0.10;
-    }
-
-    var hot=[], cold=[], neutral=[];
-    for(var n=1;n<=90;n++){
-      if(normFreq[n] >= hotThresh) hot.push(n);
-      else if(normFreq[n] <= coldThresh) cold.push(n);
-      else neutral.push(n);
-    }
-
-    hot = shuffleArray(hot);
-    hot.sort(function(a,b){ return score[b] - score[a]; });
-
-    
-    cold = shuffleArray(cold);
-    var coldCap = Math.ceil(90 * 0.20);
-    if(cold.length > coldCap) cold = cold.slice(0, coldCap);
-
-    neutral = shuffleArray(neutral);
-    neutral.sort(function(a,b){ return score[b] - score[a]; });
-
-    
-    
-    var officialRecent = {};
-    hourResults.slice(0, 2).forEach(function(r, wi){
-      r.numbers.forEach(function(n){
-        
-        officialRecent[n] = Math.max(officialRecent[n]||0, wi === 0 ? 0.55 : 0.30);
-      });
-    });
-
-    
-    var hotRatio, coldRatio;
-    if(total <= 2){
-      hotRatio = 0.60; coldRatio = 0.00; 
-    } else if(total <= 5){
-      hotRatio = 0.40; coldRatio = 0.00;
-    } else if(total <= 10){
-      hotRatio = 0.50; coldRatio = 0.10;
-    } else if(total <= 20){
-      hotRatio = 0.55; coldRatio = 0.15;
-    } else {
-      hotRatio = 0.60; coldRatio = 0.10;
-    }
-
-    var hotCount  = Math.max(1, Math.round(count * hotRatio));
-    var coldCount = Math.max(0, Math.round(count * coldRatio));
-    var neutCount = count - hotCount - coldCount;
-
-    if(hot.length < hotCount){ neutCount += hotCount-hot.length; hotCount=hot.length; }
-    if(cold.length < coldCount){ neutCount += coldCount-cold.length; coldCount=cold.length; }
-    if(neutral.length < neutCount){ coldCount += neutCount-neutral.length; neutCount=neutral.length; }
-
-    var result=[], used={};
-
-    function pickFrom(pool, limit){
-      var added=0;
-      for(var pi=0;pi<pool.length && added<limit; pi++){
-        var num = pool[pi];
-        if(used[num]) continue;
-        var penalty = officialRecent[num] || 0;
-        if(penalty > 0 && Math.random() < penalty) continue;
-        used[num]=true; result.push(num); added++;
-      }
-    }
-
-    pickFrom(hot, hotCount);
-    pickFrom(cold, coldCount);
-    pickFrom(neutral, neutCount);
-
-    
-    if(result.length < count){
-      var fallback = [];
-      for(var f=1;f<=90;f++) if(!used[f]) fallback.push(f);
-      fallback = shuffleArray(fallback);
-      fallback.sort(function(a,b){ return score[b]-score[a]; });
-      while(result.length < count && fallback.length > 0){
-        var fn = fallback.shift(); used[fn]=true; result.push(fn);
-      }
-    }
-
-    return shuffleArray(result).slice(0, count);
+    return _zoneAnalyse(hourResults, count);
   }
 
   
@@ -4853,125 +4712,105 @@ if('serviceWorker' in navigator){
   
   function analyseAllResults(count) {
     if(officialResults.length < 1) return null;
-    var allResults = officialResults;
-    var total = allResults.length;
-    var DECAY = 0.82;
+    return _zoneAnalyse(officialResults, count);
+  }
 
-    
-    var weightedFreq = {};
-    for(var i=1;i<=90;i++) weightedFreq[i] = 0;
-    allResults.forEach(function(r, idx){
-      var weight = Math.pow(DECAY, idx);
-      r.numbers.forEach(function(n){ weightedFreq[n] += weight; });
+  function _zoneAnalyse(results, count) {
+    var total = results.length;
+    var DECAY = 0.80;
+
+    var seenNums = {};
+    results.forEach(function(r){ r.numbers.forEach(function(n){ seenNums[n] = true; }); });
+
+    var zoneWeight = {};
+    for(var z=0; z<9; z++) zoneWeight[z] = 0;
+
+    results.forEach(function(r, idx){
+      var w = Math.pow(DECAY, idx);
+      r.numbers.forEach(function(n){
+        var z = Math.floor((n - 1) / 10);
+        zoneWeight[z] += w;
+      });
     });
 
-    
-    var pairBonus = {};
-    for(var n=1;n<=90;n++) pairBonus[n] = 0;
-    if(total >= 6){
-      var pairFreq = {};
-      allResults.forEach(function(r, idx){
-        var w = Math.pow(DECAY, idx);
-        var nums = r.numbers;
-        for(var a=0;a<nums.length;a++){
-          for(var b=a+1;b<nums.length;b++){
-            var key = Math.min(nums[a],nums[b])+'-'+Math.max(nums[a],nums[b]);
-            pairFreq[key] = (pairFreq[key]||0) + w;
-          }
-        }
-      });
-      Object.keys(pairFreq).forEach(function(key){
-        var parts = key.split('-');
-        var na = parseInt(parts[0]), nb = parseInt(parts[1]);
-        pairBonus[na] += pairFreq[key];
-        pairBonus[nb] += pairFreq[key];
-      });
-      var maxPB = 0;
-      for(var n=1;n<=90;n++) if(pairBonus[n] > maxPB) maxPB = pairBonus[n];
-      if(maxPB > 0){ for(var n=1;n<=90;n++) pairBonus[n] = pairBonus[n] / maxPB; }
+    var maxZW = 0;
+    for(var z=0; z<9; z++) if(zoneWeight[z] > maxZW) maxZW = zoneWeight[z];
+
+    var score = {};
+    for(var n=1; n<=90; n++){
+      if(seenNums[n]){
+        score[n] = -999;
+        continue;
+      }
+      var z = Math.floor((n - 1) / 10);
+      var zScore = maxZW > 0 ? zoneWeight[z] / maxZW : 0;
+      var noise  = (Math.random() - 0.5) * 0.18;
+      score[n]   = zScore + noise;
     }
 
-    var maxWFreq = 0;
-    for(var n=1;n<=90;n++) if(weightedFreq[n] > maxWFreq) maxWFreq = weightedFreq[n];
-    var normFreq = {}, score = {};
-    for(var n=1;n<=90;n++){
-      normFreq[n] = maxWFreq > 0 ? weightedFreq[n] / maxWFreq : 0;
-      var noise = (Math.random() - 0.5) * 0.15;
-      score[n] = normFreq[n] + (total >= 6 ? pairBonus[n] * 0.20 : 0) + noise;
-    }
-
-    
-    var hotThresh, coldThresh;
-    if(total <= 2){ hotThresh = 0.01; coldThresh = -1; }
-    else if(total <= 5){ hotThresh = 0.50; coldThresh = 0.0; }
-    else if(total <= 10){ hotThresh = 0.40; coldThresh = 0.05; }
-    else if(total <= 20){ hotThresh = 0.30; coldThresh = 0.08; }
-    else { hotThresh = 0.20; coldThresh = 0.10; }
+    var hotZoneThresh  = total <= 3 ? 0.30 : total <= 10 ? 0.45 : 0.55;
+    var coldZoneThresh = total <= 3 ? -1   : total <= 10 ? 0.05 : 0.12;
 
     var hot=[], cold=[], neutral=[];
-    for(var n=1;n<=90;n++){
-      if(normFreq[n] >= hotThresh) hot.push(n);
-      else if(normFreq[n] <= coldThresh) cold.push(n);
-      else neutral.push(n);
+    for(var n=1; n<=90; n++){
+      if(seenNums[n]) continue;
+      var z = Math.floor((n - 1) / 10);
+      var zNorm = maxZW > 0 ? zoneWeight[z] / maxZW : 0;
+      if(zNorm >= hotZoneThresh)       hot.push(n);
+      else if(zNorm <= coldZoneThresh) cold.push(n);
+      else                             neutral.push(n);
     }
 
-    hot = shuffleArray(hot);
-    hot.sort(function(a,b){ return score[b]-score[a]; });
-    cold = shuffleArray(cold);
-    var coldCap = Math.ceil(90*0.20);
-    if(cold.length > coldCap) cold = cold.slice(0,coldCap);
+    hot     = shuffleArray(hot);
+    hot.sort(function(a,b){ return score[b] - score[a]; });
+    cold    = shuffleArray(cold);
     neutral = shuffleArray(neutral);
-    neutral.sort(function(a,b){ return score[b]-score[a]; });
+    neutral.sort(function(a,b){ return score[b] - score[a]; });
 
-    
-    var recentPenalty = {};
-    allResults.slice(0,2).forEach(function(r,wi){
-      r.numbers.forEach(function(n){
-        recentPenalty[n] = Math.max(recentPenalty[n]||0, wi===0?0.55:0.30);
-      });
-    });
-
-    
-    var hotRatio, coldRatio;
-    if(total <= 2){ hotRatio=0.60; coldRatio=0.00; }
-    else if(total <= 5){ hotRatio=0.40; coldRatio=0.00; }
-    else if(total <= 10){ hotRatio=0.50; coldRatio=0.10; }
-    else if(total <= 20){ hotRatio=0.55; coldRatio=0.15; }
-    else { hotRatio=0.60; coldRatio=0.10; }
+    var hotRatio  = total <= 2 ? 0.60 : total <= 5 ? 0.50 : total <= 10 ? 0.55 : 0.60;
+    var coldRatio = total <= 5 ? 0.00 : total <= 10 ? 0.10 : 0.15;
 
     var hotCount  = Math.max(1, Math.round(count * hotRatio));
     var coldCount = Math.max(0, Math.round(count * coldRatio));
     var neutCount = count - hotCount - coldCount;
 
-    if(hot.length < hotCount){ neutCount += hotCount-hot.length; hotCount=hot.length; }
-    if(cold.length < coldCount){ neutCount += coldCount-cold.length; coldCount=cold.length; }
-    if(neutral.length < neutCount){ coldCount += neutCount-neutral.length; neutCount=neutral.length; }
+    if(hot.length < hotCount){     neutCount += hotCount  - hot.length;     hotCount  = hot.length; }
+    if(cold.length < coldCount){   neutCount += coldCount - cold.length;   coldCount = cold.length; }
+    if(neutral.length < neutCount){ hotCount  += neutCount - neutral.length; neutCount = neutral.length; }
 
     var result=[], used={};
-    function pickFromAll(pool, limit){
+
+    function _pick(pool, limit){
       var added=0;
-      for(var pi=0;pi<pool.length&&added<limit;pi++){
+      for(var pi=0; pi<pool.length && added<limit; pi++){
         var num=pool[pi];
-        if(used[num]) continue;
-        var penalty=recentPenalty[num]||0;
-        if(penalty>0 && Math.random()<penalty) continue;
+        if(used[num]||seenNums[num]) continue;
         used[num]=true; result.push(num); added++;
       }
     }
-    pickFromAll(hot, hotCount);
-    pickFromAll(cold, coldCount);
-    pickFromAll(neutral, neutCount);
+
+    _pick(hot, hotCount);
+    _pick(cold, coldCount);
+    _pick(neutral, neutCount);
 
     if(result.length < count){
       var fallback=[];
-      for(var f=1;f<=90;f++) if(!used[f]) fallback.push(f);
-      fallback=shuffleArray(fallback);
+      for(var f=1;f<=90;f++) if(!used[f]&&!seenNums[f]) fallback.push(f);
+      fallback = shuffleArray(fallback);
       fallback.sort(function(a,b){ return score[b]-score[a]; });
-      while(result.length<count&&fallback.length>0){
+      while(result.length<count && fallback.length>0){
         var fn=fallback.shift(); used[fn]=true; result.push(fn);
       }
     }
-    return shuffleArray(result).slice(0,count);
+
+    if(result.length < count){
+      for(var f=1;f<=90;f++){
+        if(result.length>=count) break;
+        if(!used[f]){ used[f]=true; result.push(f); }
+      }
+    }
+
+    return shuffleArray(result).slice(0, count);
   }
   
 
@@ -7883,7 +7722,7 @@ if('serviceWorker' in navigator){
   }
 
   
-  async function _vipVerifyCode(_0xrc){var _0xc=_0xrc['replace'](/\s/g,'')['toUpperCase']();var _0xp=_0xc['split']('-');var _0xnf=_0xp['length']===5&&_0xp[0]==='LTR'&&_0xp[1]['length']===4&&_0xp[2]['length']===5&&_0xp[3]['length']===8&&_0xp[4]['length']===4;var _0xof=_0xp['length']===4&&_0xp[0]==='LTR'&&_0xp[1]['length']===4&&_0xp[2]['length']===5&&_0xp[3]['length']===4;if(!_0xnf&&!_0xof)return{ok:false,msg:'Formato inválido'};var _0xd,_0xr,_0xi2,_0xh,_0xpl;if(_0xnf){_0xd=_0xp[1];_0xr=_0xp[2];_0xi2=_0xp[3];_0xh=_0xp[4];_0xpl='LTR-'+_0xd+'-'+_0xr+'-'+_0xi2;}else{_0xd=_0xp[1];_0xr=_0xp[2];_0xh=_0xp[3];_0xi2='FREE0';_0xpl='LTR-'+_0xd+'-'+_0xr;}var _0xe=await _vipHmac(_0xpl);if(!_0xe)return{ok:false,msg:'Erro interno'};if(_0xe['toUpperCase']()!==_0xh)return{ok:false,msg:'Código inválido <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'};var _0xuid=(_0xnf?_0xi2:'FREE')+'-'+_0xr;if(_vipIsUsed(_0xuid))return{ok:false,msg:'Código já utilizado <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'};if(_0xnf&&_0xi2!=='FREE0'){var _0xeid='LTC-'+_0xi2['slice'](0,4)+'-'+_0xi2['slice'](4);var _0xss=null;try{_0xss=JSON['parse'](localStorage['getItem']('lotaria_client_session')||'null');}catch(_0xex){}var _0xmy=_0xss?_0xss.id:'';if(_0xmy&&_0xeid!==_0xmy)return{ok:false,msg:'Código não é para esta conta <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'};}var _0xdays=parseInt(_0xd,36);var _0xims=parseInt(_0xr,36)*60000;var _0xems=_0xims+_0xdays*86400000;var _0xnow=(typeof getTrustedNow==='function'?getTrustedNow():Math.max(Date.now(),(function(){try{return parseInt(localStorage.getItem('lotaria_time_hwm'))||0;}catch(e){return 0;}})()));if(_0xnow-_0xims>366*86400000)return{ok:false,msg:'Código demasiado antigo'};if(_0xims>_0xnow+5*60000)return{ok:false,msg:'Código inválido <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'};if(_0xems<_0xnow)return{ok:false,msg:'Código expirado <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'};return{ok:true,days:_0xdays,expiryMs:_0xems,codeUid:_0xuid};}
+  async function _vipVerifyCode(_0xrc){var _0xc=_0xrc['replace'](/\s/g,'')['toUpperCase']();var _0xp=_0xc['split']('-');var _0xnf=_0xp['length']===5&&_0xp[0]==='LTR'&&_0xp[1]['length']===4&&_0xp[2]['length']===5&&_0xp[3]['length']===8&&_0xp[4]['length']===4;var _0xof=_0xp['length']===4&&_0xp[0]==='LTR'&&_0xp[1]['length']===4&&_0xp[2]['length']===5&&_0xp[3]['length']===4;if(!_0xnf&&!_0xof)return{ok:false,msg:'Formato inválido'};var _0xd,_0xr,_0xi2,_0xh,_0xpl;if(_0xnf){_0xd=_0xp[1];_0xr=_0xp[2];_0xi2=_0xp[3];_0xh=_0xp[4];_0xpl='LTR-'+_0xd+'-'+_0xr+'-'+_0xi2;}else{_0xd=_0xp[1];_0xr=_0xp[2];_0xh=_0xp[3];_0xi2='FREE0';_0xpl='LTR-'+_0xd+'-'+_0xr;}var _0xe=await _vipHmac(_0xpl);if(!_0xe)return{ok:false,msg:'Erro interno'};if(_0xe['toUpperCase']()!==_0xh)return{ok:false,msg:'Código inválido'};var _0xuid=(_0xnf?_0xi2:'FREE')+'-'+_0xr;if(_vipIsUsed(_0xuid))return{ok:false,msg:'Código já utilizado'};if(_0xnf&&_0xi2!=='FREE0'){var _0xeid='LTC-'+_0xi2['slice'](0,4)+'-'+_0xi2['slice'](4);var _0xss=null;try{_0xss=JSON['parse'](localStorage['getItem']('lotaria_client_session')||'null');}catch(_0xex){}var _0xmy=_0xss?_0xss.id:'';if(_0xmy&&_0xeid!==_0xmy)return{ok:false,msg:'Código não é para esta conta'};}var _0xdays=parseInt(_0xd,36);var _0xims=parseInt(_0xr,36)*60000;var _0xems=_0xims+_0xdays*86400000;var _0xnow=(typeof getTrustedNow==='function'?getTrustedNow():Math.max(Date.now(),(function(){try{return parseInt(localStorage.getItem('lotaria_time_hwm'))||0;}catch(e){return 0;}})()));if(_0xnow-_0xims>366*86400000)return{ok:false,msg:'Código demasiado antigo'};if(_0xims>_0xnow+5*60000)return{ok:false,msg:'Código inválido'};if(_0xems<_0xnow)return{ok:false,msg:'Código expirado'};return{ok:true,days:_0xdays,expiryMs:_0xems,codeUid:_0xuid};}
 
   async function _vipHmac(_0xpl){try{var _0xen=new TextEncoder();var _0xk=await crypto['subtle']['importKey']('raw',_0xen['encode'](_VIP_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);var _0xs=await crypto['subtle']['sign']('HMAC',_0xk,_0xen['encode'](_0xpl));var _0xa=Array.from(new Uint8Array(_0xs));var _0xn=(_0xa[0]<<16)|(_0xa[1]<<8)|_0xa[2];return _0xn['toString'](36)['toUpperCase']()['padStart'](4,'0')['slice'](-4);}catch(_0xe){return null;}}
 
@@ -8010,7 +7849,7 @@ if('serviceWorker' in navigator){
         await new Promise(function(r){ setTimeout(r,300); });
         activateVip(result.expiryMs, result.days, result.codeUid);
       } else {
-        if(msg){ msg.textContent = result.msg; msg.style.color='var(--red)'; }
+        if(msg){ msg.innerHTML = '✕ ' + result.msg; msg.style.color='var(--red)'; }
         if(inp){
           inp.style.borderColor='var(--red)';
           inp.animate([{transform:'translateX(-6px)'},{transform:'translateX(6px)'},{transform:'translateX(-4px)'},{transform:'translateX(4px)'},{transform:'translateX(0)'}],{duration:320,easing:'ease-out'});
@@ -8408,7 +8247,7 @@ if('serviceWorker' in navigator){
       await new Promise(function(r){ setTimeout(r,300); });
       activateVip(result.expiryMs, result.days, result.codeUid);
     } else {
-      msg.textContent = result.msg;
+      msg.innerHTML = '✕ ' + result.msg;
       msg.style.color = 'var(--red)';
       if(inp) inp.style.borderColor = 'var(--red)';
       
@@ -9184,9 +9023,9 @@ if('serviceWorker' in navigator){
       name = name.trim();
 
       var g = getGreeting();
-      emojiEl.textContent = g.emoji;
+      emojiEl.innerHTML   = g.emoji;
       greetEl.textContent = g.text + (name ? ', ' + name + '!' : '!');
-      subEl.textContent   = g.sub;
+      subEl.textContent   = 'Bem-vindo ao N° da Sorte';
 
       
       var msg = MOTIVATIONS[Math.floor(Math.random() * MOTIVATIONS.length)];
@@ -9991,7 +9830,7 @@ if('serviceWorker' in navigator){
   <div class="ob-modal">
     <div class="ob-hero">
       <div class="ob-hero-icon"><svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="2" width="20" height="20" rx="3" fill="var(--esvg-color)"/><circle cx="7" cy="7" r="1.4" fill="var(--surface,#f5f5f5)"/><circle cx="17" cy="7" r="1.4" fill="var(--surface,#f5f5f5)"/><circle cx="12" cy="12" r="1.4" fill="var(--surface,#f5f5f5)"/><circle cx="7" cy="17" r="1.4" fill="var(--surface,#f5f5f5)"/><circle cx="17" cy="17" r="1.4" fill="var(--surface,#f5f5f5)"/></svg></div>
-      <div class="ob-hero-title">BEM-VINDO AO LOTARIA</div>
+      <div class="ob-hero-title">BEM-VINDO AO N° DA SORTE</div>
       <div class="ob-hero-sub">O teu assistente inteligente para a Lotaria Nacional de Angola</div>
     </div>
     <div class="ob-scroll">
