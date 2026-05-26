@@ -4415,59 +4415,45 @@ if('serviceWorker' in navigator){
       off.numbers.forEach(function(n){ offFreq[n]++; });
     });
 
-    // Split variável aleatório: peso da análise vs aleatoriedade
-    // Possíveis splits: 30/70, 40/60, 60/40, 80/20
-    var splits = [0.30, 0.40, 0.60, 0.80];
-    var analysisPct = splits[Math.floor(Math.random() * splits.length)];
-
-    var nAnalysis = Math.round(count * analysisPct);
-    var nRandom   = count - nAnalysis;
-
-    // Pool de análise: números com maior frequência nos resultados oficiais
-    var ranked = [];
+    
+    var pool=[];
     for(var n=1;n<=90;n++){
-      if(!recentNums[n]) ranked.push(n);
+      if(recentNums[n]) continue; 
+      var weight = 1 + offFreq[n] * 3; 
+      for(var w=0;w<weight;w++) pool.push(n);
     }
-    ranked.sort(function(a,b){ return offFreq[b] - offFreq[a]; });
 
-    // Pool aleatório: todos os números não recentes, embaralhados
-    var randPool = ranked.slice();
-    for(var si=randPool.length-1;si>0;si--){
+    
+    if(pool.length < count * 3){
+      pool=[];
+      for(var n2=1;n2<=90;n2++) pool.push(n2);
+    }
+
+    
+    for(var si=pool.length-1;si>0;si--){
       var sj=Math.floor(Math.random()*(si+1));
-      var tmp=randPool[si];randPool[si]=randPool[sj];randPool[sj]=tmp;
+      var tmp=pool[si];pool[si]=pool[sj];pool[sj]=tmp;
     }
 
-    // Seleciona nAnalysis dos melhores (top ranked) e nRandom dos aleatórios
-    var usedNums = {};
-    var result = [];
-
-    // Análise: pega os top nAnalysis por frequência
-    for(var ai=0;ai<ranked.length&&result.length<nAnalysis;ai++){
-      var an=ranked[ai];
-      if(!usedNums[an]){ usedNums[an]=true; result.push(an); }
+    // Modo aleatório: máx. 3 números da mesma casa (dezena)
+    var MAX_PER_HOUSE = 2;
+    var houseCnt={};
+    var used={},result=[];
+    for(var pi=0;pi<pool.length&&result.length<count;pi++){
+      var pn=pool[pi];
+      if(used[pn]) continue;
+      var house=Math.floor((pn-1)/10);
+      if((houseCnt[house]||0) >= MAX_PER_HOUSE) continue;
+      used[pn]=true; houseCnt[house]=(houseCnt[house]||0)+1; result.push(pn);
     }
-
-    // Aleatório: pega nRandom do pool embaralhado
-    for(var ri2=0;ri2<randPool.length&&result.length<count;ri2++){
-      var rn2=randPool[ri2];
-      if(!usedNums[rn2]){ usedNums[rn2]=true; result.push(rn2); }
+    // fallback se ficou curto (casas muito esgotadas)
+    if(result.length < count){
+      for(var fb=1;fb<=90&&result.length<count;fb++){
+        if(!used[fb]){ used[fb]=true; result.push(fb); }
+      }
     }
-
-    // Fallback se ainda faltar
-    for(var fb2=1;fb2<=90&&result.length<count;fb2++){
-      if(!usedNums[fb2]){ usedNums[fb2]=true; result.push(fb2); }
-    }
-
-    // Embaralha o resultado final para não revelar a ordem de seleção
-    for(var fi=result.length-1;fi>0;fi--){
-      var fj=Math.floor(Math.random()*(fi+1));
-      var ftmp=result[fi];result[fi]=result[fj];result[fj]=ftmp;
-    }
-
     return result;
   }
-
-
 
   
   function nearSequential(count){
@@ -5412,7 +5398,7 @@ if('serviceWorker' in navigator){
     }
     var _wasBonus = (_hour === null);
     genHistory.unshift({mode:m,numbers:nums.slice(),method:currentMethod||'random',hour:_hour,date:_todayStr,isBonus:_wasBonus});
-    var _histLimit = (typeof _vipActive !== 'undefined' && _vipActive) ? Infinity : 5;
+    var _histLimit = (typeof _vipActive !== 'undefined' && _vipActive) ? 100 : 5;
     if(genHistory.length > _histLimit) genHistory = genHistory.slice(0, _histLimit);
     counterBadge.textContent=genHistory.length+' sorteio'+(genHistory.length!==1?'s':'');
     renderHistorySection();
@@ -6000,7 +5986,7 @@ if('serviceWorker' in navigator){
         var _n=new Date();
         var _ds=String(_n.getDate()).padStart(2,'0')+'/'+String(_n.getMonth()+1).padStart(2,'0')+'/'+_n.getFullYear();
         genHistory.unshift({mode:allhMode, numbers:capturedNums.slice(), method:genMethod, hour:capturedH, date:_ds});
-        var _histLimit2 = (typeof _vipActive !== 'undefined' && _vipActive) ? Infinity : 5;
+        var _histLimit2 = (typeof _vipActive !== 'undefined' && _vipActive) ? 100 : 5;
         if(genHistory.length > _histLimit2) genHistory = genHistory.slice(0, _histLimit2);
         saveData();
         recordDrawForHour(capturedH);
@@ -6160,7 +6146,7 @@ if('serviceWorker' in navigator){
       var sb = document.getElementById('allh-save-'+h);
       if(sb){ sb.classList.add('saved'); sb.textContent='✓ Guardado!'; }
     });
-    var _histLimitAll = (typeof _vipActive !== 'undefined' && _vipActive) ? Infinity : 5;
+    var _histLimitAll = (typeof _vipActive !== 'undefined' && _vipActive) ? 100 : 5;
     if(genHistory.length > _histLimitAll) genHistory = genHistory.slice(0, _histLimitAll);
     saveData();
     updateGenBtnQuota();
@@ -7820,7 +7806,7 @@ if('serviceWorker' in navigator){
   
   var VIP_HIST_LIMIT = 5;   
   var VIP_FAV_LIMIT  = 3;   
-  var VIP_HIST_MAX   = 999; 
+  var VIP_HIST_MAX   = 100; 
   var VIP_FAV_MAX    = 10;  
   var _vipActive = false;
   var _vipDemoTimer = null;
@@ -8353,7 +8339,7 @@ if('serviceWorker' in navigator){
       genHistory = genHistory.slice(0, limit);
       saveData();
       renderHistorySection();
-      if(!_vipActive) toast('Limite de '+limit+' sorteios no plano Grátis. ★ VIP para ilimitado.','');
+      if(!_vipActive) toast('Limite de '+limit+' sorteios no plano Grátis. ★ VIP para até 100.','');
     }
     counterBadge.textContent = genHistory.length + ' sorteio' + (genHistory.length !== 1 ? 's' : '');
   };
@@ -10437,7 +10423,7 @@ if('serviceWorker' in navigator){
       isManual: true
     };
     var isVip = (typeof _vipActive !== 'undefined' && _vipActive);
-    var histLimit = isVip ? Infinity : 5;
+    var histLimit = isVip ? 100 : 5;
     // Access via window to always get the live reference
     window.genHistory.unshift(entry);
     if(window.genHistory.length > histLimit) {
@@ -10462,8 +10448,7 @@ if('serviceWorker' in navigator){
   closeBtn.addEventListener('click', closeCustsortModal);
   overlay.addEventListener('click', function(e){ if(e.target === overlay) closeCustsortModal(); });
 
-  var addBtn = document.getElementById('addCustomDrawBtn');
-  if(addBtn) addBtn.addEventListener('click', openCustsortModal);
+  // addCustomDrawBtn handled by inline onclick with VIP gate
 
   window.openCustsortModal = openCustsortModal;
 })();
