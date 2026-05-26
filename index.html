@@ -10448,8 +10448,7 @@ if('serviceWorker' in navigator){
   closeBtn.addEventListener('click', closeCustsortModal);
   overlay.addEventListener('click', function(e){ if(e.target === overlay) closeCustsortModal(); });
 
-  var addBtn = document.getElementById('addCustomDrawBtn');
-  if(addBtn) addBtn.addEventListener('click', openCustsortModal);
+  // addCustomDrawBtn click is handled by the inline onclick (with VIP gate)
 
   window.openCustsortModal = openCustsortModal;
 })();
