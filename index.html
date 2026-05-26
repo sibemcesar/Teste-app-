@@ -4415,45 +4415,59 @@ if('serviceWorker' in navigator){
       off.numbers.forEach(function(n){ offFreq[n]++; });
     });
 
-    
-    var pool=[];
+    // Split variável aleatório: peso da análise vs aleatoriedade
+    // Possíveis splits: 30/70, 40/60, 60/40, 80/20
+    var splits = [0.30, 0.40, 0.60, 0.80];
+    var analysisPct = splits[Math.floor(Math.random() * splits.length)];
+
+    var nAnalysis = Math.round(count * analysisPct);
+    var nRandom   = count - nAnalysis;
+
+    // Pool de análise: números com maior frequência nos resultados oficiais
+    var ranked = [];
     for(var n=1;n<=90;n++){
-      if(recentNums[n]) continue; 
-      var weight = 1 + offFreq[n] * 3; 
-      for(var w=0;w<weight;w++) pool.push(n);
+      if(!recentNums[n]) ranked.push(n);
     }
+    ranked.sort(function(a,b){ return offFreq[b] - offFreq[a]; });
 
-    
-    if(pool.length < count * 3){
-      pool=[];
-      for(var n2=1;n2<=90;n2++) pool.push(n2);
-    }
-
-    
-    for(var si=pool.length-1;si>0;si--){
+    // Pool aleatório: todos os números não recentes, embaralhados
+    var randPool = ranked.slice();
+    for(var si=randPool.length-1;si>0;si--){
       var sj=Math.floor(Math.random()*(si+1));
-      var tmp=pool[si];pool[si]=pool[sj];pool[sj]=tmp;
+      var tmp=randPool[si];randPool[si]=randPool[sj];randPool[sj]=tmp;
     }
 
-    // Modo aleatório: máx. 3 números da mesma casa (dezena)
-    var MAX_PER_HOUSE = 2;
-    var houseCnt={};
-    var used={},result=[];
-    for(var pi=0;pi<pool.length&&result.length<count;pi++){
-      var pn=pool[pi];
-      if(used[pn]) continue;
-      var house=Math.floor((pn-1)/10);
-      if((houseCnt[house]||0) >= MAX_PER_HOUSE) continue;
-      used[pn]=true; houseCnt[house]=(houseCnt[house]||0)+1; result.push(pn);
+    // Seleciona nAnalysis dos melhores (top ranked) e nRandom dos aleatórios
+    var usedNums = {};
+    var result = [];
+
+    // Análise: pega os top nAnalysis por frequência
+    for(var ai=0;ai<ranked.length&&result.length<nAnalysis;ai++){
+      var an=ranked[ai];
+      if(!usedNums[an]){ usedNums[an]=true; result.push(an); }
     }
-    // fallback se ficou curto (casas muito esgotadas)
-    if(result.length < count){
-      for(var fb=1;fb<=90&&result.length<count;fb++){
-        if(!used[fb]){ used[fb]=true; result.push(fb); }
-      }
+
+    // Aleatório: pega nRandom do pool embaralhado
+    for(var ri2=0;ri2<randPool.length&&result.length<count;ri2++){
+      var rn2=randPool[ri2];
+      if(!usedNums[rn2]){ usedNums[rn2]=true; result.push(rn2); }
     }
+
+    // Fallback se ainda faltar
+    for(var fb2=1;fb2<=90&&result.length<count;fb2++){
+      if(!usedNums[fb2]){ usedNums[fb2]=true; result.push(fb2); }
+    }
+
+    // Embaralha o resultado final para não revelar a ordem de seleção
+    for(var fi=result.length-1;fi>0;fi--){
+      var fj=Math.floor(Math.random()*(fi+1));
+      var ftmp=result[fi];result[fi]=result[fj];result[fj]=ftmp;
+    }
+
     return result;
   }
+
+
 
   
   function nearSequential(count){
@@ -10448,7 +10462,8 @@ if('serviceWorker' in navigator){
   closeBtn.addEventListener('click', closeCustsortModal);
   overlay.addEventListener('click', function(e){ if(e.target === overlay) closeCustsortModal(); });
 
-  // addCustomDrawBtn click is handled by the inline onclick (with VIP gate)
+  var addBtn = document.getElementById('addCustomDrawBtn');
+  if(addBtn) addBtn.addEventListener('click', openCustsortModal);
 
   window.openCustsortModal = openCustsortModal;
 })();
