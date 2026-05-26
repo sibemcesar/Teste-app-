@@ -1826,6 +1826,20 @@ if('serviceWorker' in navigator){
         </div>
       </div>
     </div>
+
+    <div style="text-align:center">
+    <button id="addCustomDrawBtn" onclick="
+      if(window.isVipActive && window.isVipActive()){
+        window.openCustsortModal && window.openCustsortModal();
+      } else {
+        window.openVipGate && window.openVipGate();
+      }
+    ">
+      <svg style="width:.8rem;height:.8rem;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Adicionar Sorteios Manualmente
+      <svg style="width:.78rem;height:.78rem;flex-shrink:0;margin-left:2px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2 20h20v2H2zM3 9l4.5 6L12 4l4.5 11L21 9v11H3V9z" fill="var(--vip-light)"/></svg>
+    </button>
+    </div>
   </div>
 
   
@@ -5384,7 +5398,8 @@ if('serviceWorker' in navigator){
     }
     var _wasBonus = (_hour === null);
     genHistory.unshift({mode:m,numbers:nums.slice(),method:currentMethod||'random',hour:_hour,date:_todayStr,isBonus:_wasBonus});
-    if(genHistory.length>15)genHistory.pop(); 
+    var _histLimit = (typeof _vipActive !== 'undefined' && _vipActive) ? Infinity : 5;
+    if(genHistory.length > _histLimit) genHistory = genHistory.slice(0, _histLimit);
     counterBadge.textContent=genHistory.length+' sorteio'+(genHistory.length!==1?'s':'');
     renderHistorySection();
     saveData();
@@ -5456,6 +5471,7 @@ if('serviceWorker' in navigator){
         });
       })(entry, idx);
       var isQS = entry.method === 'near-seq';
+      var isManual = entry.isManual === true;
       var topRow=document.createElement('div');topRow.className='hist-row-top';
       var tag=document.createElement('div');
       tag.className='hist-tag' + (isQS ? ' qs' : '');
@@ -5464,6 +5480,15 @@ if('serviceWorker' in navigator){
       if(entry.date) tagTxtH += ' · '+entry.date;
       tag.textContent=tagTxtH;
       topRow.appendChild(tag);
+
+      if(isManual){
+        var mlabelM=document.createElement('div');
+        mlabelM.className='hist-method-label';
+        mlabelM.style.cssText='color:var(--orange);background:var(--orange-soft)';
+        mlabelM.textContent='Manual';
+        mlabelM.title='Sorteio adicionado manualmente';
+        topRow.appendChild(mlabelM);
+      }
       
       if(isQS){
         var mlabel=document.createElement('div');
@@ -5532,6 +5557,20 @@ if('serviceWorker' in navigator){
 
       histList.appendChild(row);
     });
+
+    // Show VIP upsell if free user and has reached the 5-draw limit
+    var isVipNow = (typeof _vipActive !== 'undefined' && _vipActive);
+    var existingBanner = histList.querySelector('.hist-vip-limit-banner');
+    if(existingBanner) existingBanner.remove();
+    if(!isVipNow && genHistory.length >= 5){
+      var vipBanner = document.createElement('div');
+      vipBanner.className = 'hist-vip-limit-banner';
+      vipBanner.style.cssText = 'display:flex;align-items:center;gap:10px;padding:11px 14px;margin-top:4px;background:var(--vip-soft);border:1.5px solid var(--vip);border-radius:var(--radius-sm);cursor:pointer';
+      vipBanner.innerHTML = '<svg style="width:1.1rem;height:1.1rem;flex-shrink:0" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2 20h20v2H2zM3 9l4.5 6L12 4l4.5 11L21 9v11H3V9z" fill="var(--vip-light)"/></svg>'
+        + '<span style="flex:1;font-size:.75rem;font-weight:700;color:var(--vip-dark)">Limite de 5 sorteios atingido — <u>Ativa o VIP</u> para histórico ilimitado</span>';
+      vipBanner.addEventListener('click', function(){ openVipGate(); });
+      histList.appendChild(vipBanner);
+    }
   }
 
   
@@ -5876,13 +5915,13 @@ if('serviceWorker' in navigator){
     document.body.style.overflow = 'hidden';
   }
 
-  function runAllHoursGeneration(){
+  function runAllHoursGeneration(forceNew){
     var hoursToRun = allhSelectedHours.slice().sort(function(a,b){return a-b});
     var isSingle   = hoursToRun.length === 1;
     var isAll      = hoursToRun.length === DRAW_HOURS_ALL.length;
 
     
-    var cached = isAll ? getAllHoursDaily() : null;
+    var cached = (!forceNew && isAll) ? getAllHoursDaily() : null;
 
     allhResults  = {};
     allhRunning  = !cached;
@@ -5947,7 +5986,8 @@ if('serviceWorker' in navigator){
         var _n=new Date();
         var _ds=String(_n.getDate()).padStart(2,'0')+'/'+String(_n.getMonth()+1).padStart(2,'0')+'/'+_n.getFullYear();
         genHistory.unshift({mode:allhMode, numbers:capturedNums.slice(), method:genMethod, hour:capturedH, date:_ds});
-        if(genHistory.length>15) genHistory=genHistory.slice(0,15);
+        var _histLimit2 = (typeof _vipActive !== 'undefined' && _vipActive) ? Infinity : 5;
+        if(genHistory.length > _histLimit2) genHistory = genHistory.slice(0, _histLimit2);
         saveData();
         recordDrawForHour(capturedH);
         updateGenBtnQuota();
@@ -6001,7 +6041,7 @@ if('serviceWorker' in navigator){
         allhSaveBtn.disabled = false;
         allhGenBtn.disabled = false;
         allhSaveBtnLabel.textContent = allhGetSaveBtnLabel();
-        allhSub.textContent = isSingle
+        allhSub.innerHTML = isSingle
           ? 'Sorteio das ' + hoursToRun[0] + 'h completo! <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
           : 'Sorteio completo — ' + hoursToRun.map(function(h){return h+'h';}).join(', ') + ' <svg class="esvg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="var(--esvg-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
         if(isAll) saveAllHoursDaily(allhResults);
@@ -6077,7 +6117,7 @@ if('serviceWorker' in navigator){
   allhGenBtn.addEventListener('click', function(){
     if(allhRunning) return;
     allhGenBtn.disabled = true;
-    runAllHoursGeneration();
+    runAllHoursGeneration(true);
   });
 
   allHoursClose.addEventListener('click', function(){
@@ -6106,7 +6146,8 @@ if('serviceWorker' in navigator){
       var sb = document.getElementById('allh-save-'+h);
       if(sb){ sb.classList.add('saved'); sb.textContent='✓ Guardado!'; }
     });
-    if(genHistory.length>15) genHistory = genHistory.slice(0,15);
+    var _histLimitAll = (typeof _vipActive !== 'undefined' && _vipActive) ? Infinity : 5;
+    if(genHistory.length > _histLimitAll) genHistory = genHistory.slice(0, _histLimitAll);
     saveData();
     updateGenBtnQuota();
     counterBadge.textContent = genHistory.length+' sorteio'+(genHistory.length!==1?'s':'');
@@ -7859,6 +7900,13 @@ if('serviceWorker' in navigator){
   }
   window.openVipGate  = openVipGate;
   window.closeVipGate = closeVipGate;
+  // Expose core globals for external scripts (e.g. custom draw modal)
+  window.genHistory           = genHistory;
+  window.saveData             = saveData;
+  window.renderHistorySection = renderHistorySection;
+  window.toast                = toast;
+  window.counterBadge         = counterBadge;
+  window.isVipActive          = function(){ return _vipActive; };
 
   function _vipRefreshModal(){
     var codeSection = document.getElementById('vipCodeSection');
@@ -10090,6 +10138,322 @@ if('serviceWorker' in navigator){
     </div>
   </div>
 </div>
+
+<!-- MODAL: Adicionar Sorteio Manual -->
+<style>
+  .custsort-overlay{position:fixed;inset:0;z-index:1060;background:rgba(0,0,0,.62);display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:opacity .3s,visibility .3s;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .custsort-overlay.open{opacity:1;visibility:visible}
+  .custsort-modal{width:100%;max-width:480px;background:var(--surface);border-radius:26px 26px 0 0;transform:translateY(100%);transition:transform .4s cubic-bezier(.34,1.12,.64,1);display:flex;flex-direction:column;max-height:92vh;overflow:hidden}
+  .custsort-overlay.open .custsort-modal{transform:translateY(0)}
+  .custsort-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:12px auto 0;flex-shrink:0}
+  .custsort-header{padding:16px 20px 12px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:space-between}
+  .custsort-header-left{display:flex;align-items:center;gap:11px}
+  .custsort-header-icon{width:36px;height:36px;border-radius:11px;background:var(--red-soft);display:flex;align-items:center;justify-content:center}
+  .custsort-header-title{font-weight:800;font-size:.95rem;color:var(--text);letter-spacing:.3px}
+  .custsort-header-sub{font-size:.68rem;color:var(--text2);margin-top:1px}
+  .custsort-close{width:30px;height:30px;border-radius:50%;border:none;background:var(--surface2);color:var(--text2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+  .custsort-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .custsort-body{padding:18px 20px 8px;display:flex;flex-direction:column;gap:16px}
+  .custsort-section-label{font-size:.62rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+  /* Number grid */
+  .custsort-grid{display:grid;grid-template-columns:repeat(9,1fr);gap:5px}
+  .custsort-num-btn{aspect-ratio:1;border-radius:8px;border:1.5px solid var(--border2);background:var(--surface2);font-family:'Space Mono',monospace;font-weight:700;font-size:.62rem;color:var(--text2);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+  .custsort-num-btn.sel{border-color:var(--red);color:#fff;transform:scale(1.05);box-shadow:0 2px 8px var(--red-glow)}
+  .custsort-num-btn.sel.c1{background:var(--r1gr)}.custsort-num-btn.sel.c2{background:var(--r2gr)}.custsort-num-btn.sel.c3{background:var(--r3gr)}.custsort-num-btn.sel.c4{background:var(--r4gr)}.custsort-num-btn.sel.c5{background:var(--r5gr)}
+  /* Selected preview strip */
+  .custsort-preview{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;align-items:center}
+  .custsort-preview-ball{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-weight:700;font-size:.65rem;color:#fff;flex-shrink:0;animation:fadeUp .2s ease both}
+  .custsort-preview-empty{font-size:.72rem;color:var(--text3);font-style:italic}
+  /* Mode pills */
+  .custsort-mode-row{display:flex;gap:7px;flex-wrap:wrap}
+  .custsort-mode-pill{padding:7px 16px;border:2px solid var(--border2);border-radius:20px;font-family:'Space Mono',monospace;font-weight:700;font-size:.75rem;color:var(--text2);background:var(--surface2);cursor:pointer;transition:all .18s}
+  .custsort-mode-pill.active{border-color:var(--red);background:var(--red);color:#fff;box-shadow:0 2px 10px var(--red-glow)}
+  /* Hour pills */
+  .custsort-hour-row{display:flex;gap:7px;flex-wrap:wrap}
+  .custsort-hour-pill{padding:7px 18px;border:2px solid var(--border2);border-radius:20px;font-family:'Space Mono',monospace;font-weight:700;font-size:.75rem;color:var(--text2);background:var(--surface2);cursor:pointer;transition:all .18s}
+  .custsort-hour-pill.active{border-color:var(--red);background:var(--red);color:#fff;box-shadow:0 2px 10px var(--red-glow)}
+  /* Date */
+  .custsort-date-input{width:100%;padding:10px 14px;border:1.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:'Outfit',sans-serif;font-size:.85rem;outline:none;transition:border-color .2s}
+  .custsort-date-input:focus{border-color:var(--red)}
+  /* Footer */
+  .custsort-footer{padding:14px 20px max(18px,env(safe-area-inset-bottom));flex-shrink:0;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+  .custsort-counter{font-size:.7rem;color:var(--text2);text-align:center;font-weight:600}
+  .custsort-counter span{color:var(--red);font-weight:800}
+  .custsort-save-btn{width:100%;padding:14px;border:none;border-radius:var(--radius-sm);background:linear-gradient(135deg,#b71c1c,#e53935);color:#fff;font-family:'Outfit',sans-serif;font-weight:900;font-size:.92rem;letter-spacing:1.5px;cursor:pointer;transition:all .2s;opacity:.4;pointer-events:none}
+  .custsort-save-btn.ready{opacity:1;pointer-events:auto;box-shadow:0 4px 18px var(--red-glow)}
+  .custsort-save-btn.ready:active{transform:scale(.97)}
+
+  #addCustomDrawBtn{
+    display:inline-flex;align-items:center;gap:7px;
+    padding:9px 18px;
+    border:1.5px solid var(--vip);
+    border-radius:20px;
+    background:var(--vip-soft);
+    color:var(--vip-dark);
+    font-family:'Outfit',sans-serif;font-weight:700;font-size:.76rem;
+    letter-spacing:.3px;cursor:pointer;
+    transition:all .22s;
+    margin:10px auto 4px;
+    box-shadow:0 2px 10px var(--vip-glow);
+  }
+  #addCustomDrawBtn:hover{
+    background:var(--vip-soft2);
+    box-shadow:0 4px 16px var(--vip-glow);
+    transform:translateY(-1px);
+  }
+  #addCustomDrawBtn:active{transform:scale(.96)}
+</style>
+
+<div class="custsort-overlay" id="custsortOverlay">
+  <div class="custsort-modal">
+    <div class="custsort-handle"></div>
+    <div class="custsort-header">
+      <div class="custsort-header-left">
+        <div class="custsort-header-icon">
+          <svg style="width:1.1rem;height:1.1rem;fill:none;stroke:var(--red);stroke-width:2;stroke-linecap:round;stroke-linejoin:round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        <div>
+          <div class="custsort-header-title">Adicionar Sorteio</div>
+          <div class="custsort-header-sub">Escolhe os teus números favoritos</div>
+        </div>
+      </div>
+      <button class="custsort-close" id="custsortClose">
+        <svg style="width:.85rem;height:.85rem;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="custsort-scroll">
+      <div class="custsort-body">
+
+        <!-- Pré-visualização -->
+        <div>
+          <div class="custsort-section-label">Números selecionados</div>
+          <div class="custsort-preview" id="custsortPreview">
+            <span class="custsort-preview-empty">Ainda nenhum número escolhido</span>
+          </div>
+        </div>
+
+        <!-- Modo (nº de bolas) -->
+        <div>
+          <div class="custsort-section-label">Chances (nº de bolas)</div>
+          <div class="custsort-mode-row" id="custsortModeRow">
+            <button class="custsort-mode-pill" data-m="2">2×</button>
+            <button class="custsort-mode-pill active" data-m="3">3×</button>
+            <button class="custsort-mode-pill" data-m="4">4×</button>
+            <button class="custsort-mode-pill" data-m="5">5×</button>
+          </div>
+        </div>
+
+        <!-- Hora -->
+        <div>
+          <div class="custsort-section-label">Hora do sorteio</div>
+          <div class="custsort-hour-row" id="custsortHourRow">
+            <button class="custsort-hour-pill active" data-h="10">10h</button>
+            <button class="custsort-hour-pill" data-h="13">13h</button>
+            <button class="custsort-hour-pill" data-h="16">16h</button>
+            <button class="custsort-hour-pill" data-h="19">19h</button>
+          </div>
+        </div>
+
+        <!-- Data -->
+        <div>
+          <div class="custsort-section-label">Data</div>
+          <input type="date" class="custsort-date-input" id="custsortDate">
+        </div>
+
+        <!-- Grelha de números -->
+        <div>
+          <div class="custsort-section-label">Escolhe os números (1–90)</div>
+          <div class="custsort-grid" id="custsortGrid"></div>
+        </div>
+
+      </div>
+    </div>
+    <div class="custsort-footer">
+      <div class="custsort-counter">Selecionados: <span id="custsortCount">0</span> / <span id="custsortTarget">3</span></div>
+      <button class="custsort-save-btn" id="custsortSaveBtn">GUARDAR NO HISTÓRICO</button>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var overlay   = document.getElementById('custsortOverlay');
+  var closeBtn  = document.getElementById('custsortClose');
+  var grid      = document.getElementById('custsortGrid');
+  var preview   = document.getElementById('custsortPreview');
+  var countEl   = document.getElementById('custsortCount');
+  var targetEl  = document.getElementById('custsortTarget');
+  var saveBtn   = document.getElementById('custsortSaveBtn');
+  var dateInput = document.getElementById('custsortDate');
+  var modeRow   = document.getElementById('custsortModeRow');
+  var hourRow   = document.getElementById('custsortHourRow');
+
+  var custsortSelectedNums = [];
+  var custsortMode = 3;
+  var custsortHour = 10;
+
+  function ccCs(n){
+    if(n<=18)return'c1';if(n<=36)return'c2';if(n<=54)return'c3';if(n<=72)return'c4';return'c5';
+  }
+
+  // Build number grid 1-90
+  for(var n = 1; n <= 90; n++){
+    (function(num){
+      var btn = document.createElement('button');
+      btn.className = 'custsort-num-btn';
+      btn.id = 'csn-' + num;
+      btn.textContent = num;
+      btn.addEventListener('click', function(){
+        var idx = custsortSelectedNums.indexOf(num);
+        if(idx !== -1){
+          custsortSelectedNums.splice(idx, 1);
+          btn.classList.remove('sel','c1','c2','c3','c4','c5');
+        } else {
+          if(custsortSelectedNums.length >= custsortMode) return;
+          custsortSelectedNums.push(num);
+          btn.classList.add('sel', ccCs(num));
+        }
+        updateUI();
+      });
+      grid.appendChild(btn);
+    })(n);
+  }
+
+  function updateUI(){
+    // preview balls
+    preview.innerHTML = '';
+    if(custsortSelectedNums.length === 0){
+      preview.innerHTML = '<span class="custsort-preview-empty">Ainda nenhum número escolhido</span>';
+    } else {
+      var sorted = custsortSelectedNums.slice().sort(function(a,b){return a-b});
+      sorted.forEach(function(n){
+        var b = document.createElement('div');
+        var cls = ccCs(n);
+        var grads = {c1:'var(--r1gr)',c2:'var(--r2gr)',c3:'var(--r3gr)',c4:'var(--r4gr)',c5:'var(--r5gr)'};
+        b.className = 'custsort-preview-ball';
+        b.style.background = grads[cls];
+        b.textContent = n;
+        preview.appendChild(b);
+      });
+    }
+    // counter
+    countEl.textContent = custsortSelectedNums.length;
+    targetEl.textContent = custsortMode;
+    // dim/lock remaining num buttons when limit reached
+    var atLimit = custsortSelectedNums.length >= custsortMode;
+    for(var i = 1; i <= 90; i++){
+      var el = document.getElementById('csn-' + i);
+      if(!el) continue;
+      var isSel = custsortSelectedNums.indexOf(i) !== -1;
+      el.style.opacity = (!isSel && atLimit) ? '.3' : '';
+      el.style.pointerEvents = (!isSel && atLimit) ? 'none' : '';
+    }
+    // save button state
+    var ready = (custsortSelectedNums.length === custsortMode) && !!dateInput.value;
+    saveBtn.classList.toggle('ready', ready);
+  }
+
+  // Mode pills
+  modeRow.addEventListener('click', function(e){
+    var pill = e.target.closest('.custsort-mode-pill');
+    if(!pill) return;
+    custsortMode = parseInt(pill.getAttribute('data-m'));
+    modeRow.querySelectorAll('.custsort-mode-pill').forEach(function(p){ p.classList.remove('active'); });
+    pill.classList.add('active');
+    // trim selection if over new limit
+    if(custsortSelectedNums.length > custsortMode){
+      var removed = custsortSelectedNums.splice(custsortMode);
+      removed.forEach(function(num){
+        var el = document.getElementById('csn-'+num);
+        if(el) el.classList.remove('sel','c1','c2','c3','c4','c5');
+      });
+    }
+    updateUI();
+  });
+
+  // Hour pills
+  hourRow.addEventListener('click', function(e){
+    var pill = e.target.closest('.custsort-hour-pill');
+    if(!pill) return;
+    custsortHour = parseInt(pill.getAttribute('data-h'));
+    hourRow.querySelectorAll('.custsort-hour-pill').forEach(function(p){ p.classList.remove('active'); });
+    pill.classList.add('active');
+  });
+
+  dateInput.addEventListener('change', updateUI);
+
+  function openCustsortModal(){
+    // reset
+    custsortSelectedNums = [];
+    custsortMode = 3;
+    custsortHour = 10;
+    grid.querySelectorAll('.custsort-num-btn').forEach(function(b){
+      b.classList.remove('sel','c1','c2','c3','c4','c5');
+      b.style.opacity = '';
+      b.style.pointerEvents = '';
+    });
+    modeRow.querySelectorAll('.custsort-mode-pill').forEach(function(p){
+      p.classList.toggle('active', p.getAttribute('data-m') === '3');
+    });
+    hourRow.querySelectorAll('.custsort-hour-pill').forEach(function(p){
+      p.classList.toggle('active', p.getAttribute('data-h') === '10');
+    });
+    var d = new Date();
+    dateInput.value = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    updateUI();
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeCustsortModal(){
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  saveBtn.addEventListener('click', function(){
+    if(!saveBtn.classList.contains('ready')) return;
+    var nums = custsortSelectedNums.slice().sort(function(a,b){return a-b});
+    var parts = dateInput.value.split('-');
+    var dateStr = parts[2]+'/'+parts[1]+'/'+parts[0];
+    var entry = {
+      mode: custsortMode,
+      numbers: nums,
+      method: 'manual',
+      hour: custsortHour,
+      date: dateStr,
+      isManual: true
+    };
+    var isVip = (typeof _vipActive !== 'undefined' && _vipActive);
+    var histLimit = isVip ? Infinity : 5;
+    // Access via window to always get the live reference
+    window.genHistory.unshift(entry);
+    if(window.genHistory.length > histLimit) {
+      window.genHistory.splice(histLimit);
+    }
+    window.saveData();
+    window.renderHistorySection();
+    var badge = document.getElementById('counterBadge');
+    if(badge) badge.textContent = window.genHistory.length+' sorteio'+(window.genHistory.length!==1?'s':'');
+    var histCard = document.getElementById('histCard');
+    if(histCard) histCard.style.display = '';
+    var histBody = document.getElementById('histBody');
+    if(histBody && !histBody.classList.contains('open')){
+      histBody.classList.add('open');
+      var histChev = document.getElementById('histChev');
+      if(histChev) histChev.classList.add('open');
+    }
+    closeCustsortModal();
+    window.toast('Sorteio adicionado ao histórico!', 'ok');
+  });
+
+  closeBtn.addEventListener('click', closeCustsortModal);
+  overlay.addEventListener('click', function(e){ if(e.target === overlay) closeCustsortModal(); });
+
+  var addBtn = document.getElementById('addCustomDrawBtn');
+  if(addBtn) addBtn.addEventListener('click', openCustsortModal);
+
+  window.openCustsortModal = openCustsortModal;
+})();
+</script>
 
 </body>
 </html>
