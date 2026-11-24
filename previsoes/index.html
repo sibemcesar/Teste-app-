@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12151c">
+<title>Previsões</title>
+<style>
+  :root{
+    --bg:#12151c; --card:#1b1f29; --card2:#242936; --line:#2c3242;
+    --tx:#eef1f7; --mut:#8a92a6; --acc:#7db4ff; --ok:#35d07f; --okbg:#173a2a; --bad:#ff6b6b; --warn:#f5b942;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:560px;margin:0 auto;padding:0 14px 40px}
+  header{display:flex;align-items:center;gap:10px;padding:18px 0 12px}
+  header h1{font-size:20px;margin:0;font-weight:700}
+  header small{color:var(--mut);margin-left:auto}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 14px}
+  .tab{border:0;border-radius:10px;padding:12px;font:600 13px inherit;letter-spacing:.06em;text-transform:uppercase;
+       background:transparent;color:var(--mut);cursor:pointer}
+  .tab.on{background:#26344d;color:var(--acc)}
+  .banner{background:#3a2f12;color:var(--warn);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}
+  .sum{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px;font-size:14px}
+  .sum b{font-size:18px}
+  .sum p{margin:6px 0 0;color:var(--mut);font-size:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:12px}
+  .top{display:flex;justify-content:space-between;color:var(--mut);font-size:12px;gap:8px}
+  .teams{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;margin:12px 0}
+  .team{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-weight:700;font-size:15px;min-width:0}
+  .team span{overflow-wrap:anywhere}
+  .crest{width:34px;height:34px;border-radius:50%;background:var(--card2);display:grid;place-items:center;font-size:12px;color:var(--acc);overflow:hidden;border:1px solid var(--line)}
+  .crest img{width:100%;height:100%;object-fit:contain}
+  .mid{font-weight:800;font-size:18px;color:var(--mut);min-width:44px;text-align:center}
+  .tip{display:flex;align-items:center;gap:8px;background:#161a22;border-radius:10px;padding:8px 10px}
+  .tip .lbl{color:var(--mut);font-size:12px}
+  .pill{background:var(--card2);border-radius:8px;padding:6px 10px;font-weight:700;font-size:13px}
+  .pct{margin-left:auto;font-weight:700}
+  .odd{background:var(--okbg);color:var(--ok);border-radius:8px;padding:7px 10px;font-weight:800}
+  .conf{font-size:11px;color:var(--mut);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
+  .res{font-weight:800}.res.ok{color:var(--ok)}.res.no{color:var(--bad)}
+  details{margin-top:8px}
+  summary{cursor:pointer;color:var(--acc);font-size:13px;list-style:none}
+  summary::-webkit-details-marker{display:none}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+  td{padding:6px 4px;border-top:1px solid var(--line)}
+  td:last-child{text-align:right;color:var(--mut)}
+  .chips{display:flex;gap:4px;margin-top:8px;align-items:center;font-size:12px;color:var(--mut)}
+  .chip{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-weight:800;font-size:11px;color:#0b0d12}
+  .V{background:var(--ok)}.E{background:var(--warn)}.D{background:var(--bad)}
+  .empty{text-align:center;color:var(--mut);padding:40px 10px}
+  .day{margin:18px 0 8px;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+  footer{color:var(--mut);font-size:12px;margin-top:22px;border-top:1px solid var(--line);padding-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Previsões</h1><small id="today"></small></header>
+  <div class="tabs">
+    <button class="tab on" data-t="hoje">Hoje</button>
+    <button class="tab" data-t="ant">Anteriores</button>
+  </div>
+  <div id="banner"></div>
+  <div id="view"><div class="empty">A carregar…</div></div>
+  <footer>
+    Previsões estatísticas automáticas (modelo de Poisson sobre os golos recentes de cada equipa). Não são garantias nem
+    aconselhamento financeiro. A "odd justa" é a odd que o modelo considera equilibrada: só tem valor se a casa de apostas
+    pagar mais do que isso, e o modelo pode estar errado. Aposta apenas o que podes perder.
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  // Se o site estiver num domínio diferente da função, põe aqui o endereço da Vercel, ex.: 'https://meu-site.vercel.app'
+  var API_BASE = '';
+  var API = API_BASE + '/api/previsoes';
+  var LOCAL = !/^https?:$/.test(location.protocol) && !API_BASE; // aberto como ficheiro no telemóvel/PC
+  var DEMO = new URLSearchParams(location.search).get('demo') === '1' || LOCAL;
+  var DEMO_MSG = LOCAL
+    ? 'Estás a abrir o ficheiro localmente, por isso mostro a demonstração (equipas e números fictícios). Para dados reais, publica o projeto na Vercel.'
+    : 'Modo demonstração: equipas e números fictícios.';
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+
+  // YYYY-MM-DD no fuso do utilizador
+  function ymd(d) {
+    var m = d.getMonth() + 1, day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  function hhmm(iso) { return new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }); }
+  function pct(p) { return Math.round(p * 100) + '%'; }
+  function fmtDay(s) {
+    return new Date(s + 'T12:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+  }
+
+  // ---------- dados de demonstração (FICTÍCIOS) ----------
+  function demoDay(dateStr, isPast) {
+    var mk = function (id, lg, hh, mm, h, a, ph, pa, best, extra) {
+      var d = new Date(dateStr + 'T' + hh + ':' + mm + ':00');
+      var m = {
+        id: id, league: lg, startingAt: d.toISOString(), state: isPast ? 'FT' : 'NS', finished: isPast,
+        score: isPast ? extra.score : null,
+        home: { name: h, logo: '', form: ph }, away: { name: a, logo: '', form: pa },
+        prediction: {
+          xg: extra.xg,
+          markets: extra.markets,
+          best: best
+        }
+      };
+      return m;
+    };
+    function mkt(key, label, pickLabel, prob, hit, sec) {
+      return { key: key, label: label, secondary: !!sec, pick: pickLabel, pickLabel: pickLabel, prob: prob,
+               fairOdd: Math.round(100 / prob) / 100, hit: hit };
+    }
+    var hit = function (v) { return isPast ? v : null; };
+    var m1 = [mkt('1x2', 'Resultado', 'Vitória casa', 0.52, hit(true)), mkt('goals', 'Golos', 'Mais de 2,5', 0.58, hit(true)),
+              mkt('btts', 'Ambas marcam', 'Sim', 0.61, hit(true)), mkt('dc', 'Dupla hipótese', '1X', 0.77, hit(true), true)];
+    var m2 = [mkt('1x2', 'Resultado', 'Empate', 0.34, hit(false)), mkt('goals', 'Golos', 'Menos de 2,5', 0.64, hit(false)),
+              mkt('btts', 'Ambas marcam', 'Não', 0.53, hit(true)), mkt('dc', 'Dupla hipótese', 'X2', 0.66, hit(false), true)];
+    return { date: dateStr, matches: [
+      mk(1, 'Liga Demo A', '17', '00', 'Benguela FC', 'Lobito United', ['V', 'V', 'E', 'V', 'D'], ['D', 'E', 'V', 'D', 'D'],
+         { key: 'btts', label: 'Ambas marcam', pickLabel: 'Sim', prob: 0.61, fairOdd: 1.64, confidence: 'média', hit: hit(true) },
+         { xg: [1.8, 1.2], markets: m1, score: { home: 3, away: 1 } }),
+      mk(2, 'Liga Demo B', '19', '30', 'Huambo SC', 'Namibe City', ['E', 'D', 'E', 'V', 'E'], ['V', 'E', 'D', 'E', 'E'],
+         { key: 'goals', label: 'Golos', pickLabel: 'Menos de 2,5', prob: 0.64, fairOdd: 1.56, confidence: 'média', hit: hit(false) },
+         { xg: [1.0, 0.9], markets: m2, score: { home: 2, away: 2 } })
+    ] };
+  }
+
+  // ---------- rede ----------
+  var useDemo = DEMO;
+  function loadDay(dateStr, isPast) {
+    if (useDemo) return Promise.resolve(demoDay(dateStr, isPast));
+    return fetch(API + '?date=' + dateStr).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (j) {
+      if (!j || !Array.isArray(j.matches)) throw new Error('resposta inválida');
+      return j;
+    });
+  }
+
+  // ---------- UI ----------
+  function crest(t) {
+    var ini = esc((t.name || '?').split(/\s+/).map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase());
+    var img = t.logo ? '<img alt="" loading="lazy" src="' + esc(t.logo) + '" onerror="this.remove()">' : '';
+    return '<div class="crest">' + (img || ini) + '</div>';
+  }
+  function chips(form) {
+    if (!form || !form.length) return '<span>sem jogos recentes</span>';
+    return form.map(function (c) { return '<span class="chip ' + esc(c) + '">' + esc(c) + '</span>'; }).join('');
+  }
+  function resMark(hit) {
+    if (hit === true) return '<span class="res ok">✔ acertou</span>';
+    if (hit === false) return '<span class="res no">✖ falhou</span>';
+    return '';
+  }
+
+  function card(m) {
+    var p = m.prediction;
+    var mid = m.finished && m.score ? m.score.home + ' - ' + m.score.away : 'vs';
+    var tipHtml;
+    if (!p) {
+      tipHtml = '<div class="tip"><span class="lbl">Sem dados suficientes para prever este jogo</span></div>';
+    } else {
+      var b = p.best;
+      tipHtml = '<div class="tip"><span class="lbl">TIP:</span><span class="pill">' + esc(b.label) + ': ' + esc(b.pickLabel) +
+        '</span><span class="pct">' + pct(b.prob) + '</span><span class="odd" title="Odd justa segundo o modelo">' +
+        b.fairOdd.toFixed(2) + '</span></div>' +
+        '<div class="conf"><span>Confiança ' + esc(b.confidence) + '</span><span>Golos esperados ' + p.xg[0] + ' – ' + p.xg[1] + '</span>' +
+        resMark(b.hit) + '</div>';
+    }
+    var rows = '';
+    if (p) {
+      rows = '<details><summary>Ver todos os mercados</summary><table>' + p.markets.map(function (x) {
+        return '<tr><td>' + esc(x.label) + '</td><td><b>' + esc(x.pickLabel) + '</b> ' + resMark(x.hit) +
+               '</td><td>' + pct(x.prob) + ' · ' + x.fairOdd.toFixed(2) + '</td></tr>';
+      }).join('') + '</table>' +
+        '<div class="chips">Forma ' + esc(m.home.name) + ': ' + chips(m.home.form) + '</div>' +
+        '<div class="chips">Forma ' + esc(m.away.name) + ': ' + chips(m.away.form) + '</div></details>';
+    }
+    return '<div class="card"><div class="top"><span>' + esc(m.league) + '</span><span>' + esc(hhmm(m.startingAt)) +
+      (m.finished ? ' · terminado' : '') + '</span></div>' +
+      '<div class="teams"><div class="team">' + crest(m.home) + '<span>' + esc(m.home.name) + '</span></div>' +
+      '<div class="mid">' + esc(mid) + '</div>' +
+      '<div class="team">' + crest(m.away) + '<span>' + esc(m.away.name) + '</span></div></div>' + tipHtml + rows + '</div>';
+  }
+
+  function setBanner(msg) { $('#banner').innerHTML = msg ? '<div class="banner">' + msg + '</div>' : ''; }
+
+  function showToday() {
+    $('#view').innerHTML = '<div class="empty">A carregar…</div>';
+    loadDay(ymd(new Date()), false).then(function (d) {
+      setBanner(useDemo ? DEMO_MSG : '');
+      var ms = d.matches.filter(function (m) { return !m.finished || true; });
+      $('#view').innerHTML = ms.length ? ms.map(card).join('') : '<div class="empty">Sem jogos nas ligas disponíveis hoje.</div>';
+    }).catch(fail);
+  }
+
+  function showPrev() {
+    $('#view').innerHTML = '<div class="empty">A carregar…</div>';
+    var days = [];
+    for (var i = 1; i <= 7; i++) days.push(ymd(addDays(new Date(), -i)));
+    Promise.all(days.map(function (d) { return loadDay(d, true); })).then(function (all) {
+      setBanner(useDemo ? DEMO_MSG : '');
+      var tot = 0, ok = 0, html = '';
+      all.forEach(function (d, i) {
+        var fin = d.matches.filter(function (m) { return m.finished && m.prediction; });
+        fin.forEach(function (m) { if (m.prediction.best.hit != null) { tot++; if (m.prediction.best.hit) ok++; } });
+        if (d.matches.length) html += '<div class="day">' + esc(fmtDay(days[i])) + '</div>' + d.matches.map(card).join('');
+      });
+      var sum = tot ? '<div class="sum">Últimos 7 dias: <b>' + ok + '/' + tot + '</b> dicas certas (' + Math.round(100 * ok / tot) +
+        '%)<p>Cada jogo conta com a sua dica principal. As previsões dos dias passados são recalculadas só com jogos anteriores a cada partida, ' +
+        'por isso mostram como o modelo teria ido, mas não são dicas publicadas antes do jogo.</p></div>' : '';
+      $('#view').innerHTML = (sum + html) || '<div class="empty">Ainda não há jogos anteriores para mostrar.</div>';
+    }).catch(fail);
+  }
+
+  function fail(e) {
+    $('#view').innerHTML = '<div class="empty">Não foi possível carregar os dados (' + esc(e.message) + ').<br><br>' +
+      'Se estás a testar o ficheiro localmente, abre <b>?demo=1</b> para ver a demonstração.</div>';
+  }
+
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.classList.toggle('on', x === b); });
+      if (b.dataset.t === 'hoje') showToday(); else showPrev();
+    });
+  });
+  $('#today').textContent = new Date().toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+  showToday();
+})();
+</script>
+</body>
+</html>
