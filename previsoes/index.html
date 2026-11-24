@@ -72,14 +72,13 @@
 <script>
 (function () {
   'use strict';
-  // Se o site estiver num domínio diferente da função, põe aqui o endereço da Vercel, ex.: 'https://meu-site.vercel.app'
+  // Os dados são ficheiros JSON gerados pelo GitHub Actions (previsoes/data/AAAA-MM-DD.json).
+  // A página lê-os diretamente do repositório, por isso funciona em qualquer sítio, até como ficheiro local.
+  var DATA_BASE = 'https://raw.githubusercontent.com/sibemcesar/Teste-app-/main/previsoes/data/';
+  // Opcional: se preferires usar a função da Vercel, põe aqui o endereço dela, ex.: 'https://meu-site.vercel.app'
   var API_BASE = '';
-  var API = API_BASE + '/api/previsoes';
-  var LOCAL = !/^https?:$/.test(location.protocol) && !API_BASE; // aberto como ficheiro no telemóvel/PC
-  var DEMO = new URLSearchParams(location.search).get('demo') === '1' || LOCAL;
-  var DEMO_MSG = LOCAL
-    ? 'Estás a abrir o ficheiro localmente, por isso mostro a demonstração (equipas e números fictícios). Para dados reais, publica o projeto na Vercel.'
-    : 'Modo demonstração: equipas e números fictícios.';
+  var DEMO = new URLSearchParams(location.search).get('demo') === '1';
+  var DEMO_MSG = 'Modo demonstração: equipas e números fictícios.';
   var $ = function (s) { return document.querySelector(s); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -89,7 +88,8 @@
     var m = d.getMonth() + 1, day = d.getDate();
     return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
   }
-  function addDays(d, n) { var x = new Date(d); x.setDate(x.getDate() + n); return x; }
+  // Data UTC (é a que dá nome aos ficheiros de dados), "back" dias atrás
+  function utcDay(back) { return new Date(Date.now() - back * 86400000).toISOString().slice(0, 10); }
   function hhmm(iso) { return new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }); }
   function pct(p) { return Math.round(p * 100) + '%'; }
   function fmtDay(s) {
@@ -101,7 +101,7 @@
     var mk = function (id, lg, hh, mm, h, a, ph, pa, best, extra) {
       var d = new Date(dateStr + 'T' + hh + ':' + mm + ':00');
       var m = {
-        id: id, league: lg, startingAt: d.toISOString(), state: isPast ? 'FT' : 'NS', finished: isPast,
+        id: id, league: lg, startingAt: d.toISOString(), state: isPast ? 'FT' : 'NS', finished: isPast, preGame: true,
         score: isPast ? extra.score : null,
         home: { name: h, logo: '', form: ph }, away: { name: a, logo: '', form: pa },
         prediction: {
@@ -135,7 +135,9 @@
   var useDemo = DEMO;
   function loadDay(dateStr, isPast) {
     if (useDemo) return Promise.resolve(demoDay(dateStr, isPast));
-    return fetch(API + '?date=' + dateStr).then(function (r) {
+    var url = API_BASE ? API_BASE + '/api/previsoes?date=' + dateStr : DATA_BASE + dateStr + '.json';
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (r.status === 404) return { date: dateStr, matches: [] }; // dia ainda sem ficheiro
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     }).then(function (j) {
@@ -172,7 +174,7 @@
         '</span><span class="pct">' + pct(b.prob) + '</span><span class="odd" title="Odd justa segundo o modelo">' +
         b.fairOdd.toFixed(2) + '</span></div>' +
         '<div class="conf"><span>Confiança ' + esc(b.confidence) + '</span><span>Golos esperados ' + p.xg[0] + ' – ' + p.xg[1] + '</span>' +
-        resMark(b.hit) + '</div>';
+        (m.preGame ? '<span>registada antes do jogo</span>' : '') + resMark(b.hit) + '</div>';
     }
     var rows = '';
     if (p) {
@@ -194,7 +196,7 @@
 
   function showToday() {
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
-    loadDay(ymd(new Date()), false).then(function (d) {
+    loadDay(utcDay(0), false).then(function (d) {
       setBanner(useDemo ? DEMO_MSG : '');
       var ms = d.matches.filter(function (m) { return !m.finished || true; });
       $('#view').innerHTML = ms.length ? ms.map(card).join('') : '<div class="empty">Sem jogos nas ligas disponíveis hoje.</div>';
@@ -204,25 +206,35 @@
   function showPrev() {
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
     var days = [];
-    for (var i = 1; i <= 7; i++) days.push(ymd(addDays(new Date(), -i)));
+    for (var i = 1; i <= 7; i++) days.push(utcDay(i));
     Promise.all(days.map(function (d) { return loadDay(d, true); })).then(function (all) {
       setBanner(useDemo ? DEMO_MSG : '');
-      var tot = 0, ok = 0, html = '';
+      var pre = { t: 0, ok: 0 }, rec = { t: 0, ok: 0 }, html = '';
       all.forEach(function (d, i) {
-        var fin = d.matches.filter(function (m) { return m.finished && m.prediction; });
-        fin.forEach(function (m) { if (m.prediction.best.hit != null) { tot++; if (m.prediction.best.hit) ok++; } });
+        d.matches.forEach(function (m) {
+          if (!m.finished || !m.prediction || m.prediction.best.hit == null) return;
+          var g = m.preGame ? pre : rec;
+          g.t++; if (m.prediction.best.hit) g.ok++;
+        });
         if (d.matches.length) html += '<div class="day">' + esc(fmtDay(days[i])) + '</div>' + d.matches.map(card).join('');
       });
-      var sum = tot ? '<div class="sum">Últimos 7 dias: <b>' + ok + '/' + tot + '</b> dicas certas (' + Math.round(100 * ok / tot) +
-        '%)<p>Cada jogo conta com a sua dica principal. As previsões dos dias passados são recalculadas só com jogos anteriores a cada partida, ' +
-        'por isso mostram como o modelo teria ido, mas não são dicas publicadas antes do jogo.</p></div>' : '';
+      var sum = '';
+      if (pre.t) {
+        sum = '<div class="sum">Últimos 7 dias: <b>' + pre.ok + '/' + pre.t + '</b> dicas certas (' + Math.round(100 * pre.ok / pre.t) +
+          '%)<p>Só contam as dicas registadas antes do jogo, com a dica principal de cada um.' +
+          (rec.t ? ' Há mais ' + rec.t + ' jogo(s) calculados depois de terminarem, que não entram nesta conta.' : '') + '</p></div>';
+      } else if (rec.t) {
+        sum = '<div class="sum">Calculadas depois dos jogos: <b>' + rec.ok + '/' + rec.t + '</b> (' + Math.round(100 * rec.ok / rec.t) +
+          '%)<p>Estas previsões foram calculadas só com jogos anteriores a cada partida, mas depois de ela acontecer. ' +
+          'Mostram como o modelo teria ido, não são dicas publicadas antes. O registo verdadeiro começa a partir de agora.</p></div>';
+      }
       $('#view').innerHTML = (sum + html) || '<div class="empty">Ainda não há jogos anteriores para mostrar.</div>';
     }).catch(fail);
   }
 
   function fail(e) {
     $('#view').innerHTML = '<div class="empty">Não foi possível carregar os dados (' + esc(e.message) + ').<br><br>' +
-      'Se estás a testar o ficheiro localmente, abre <b>?demo=1</b> para ver a demonstração.</div>';
+      'Verifica a ligação à internet. Para ver só o visual, abre com <b>?demo=1</b> no fim do endereço.</div>';
   }
 
   document.querySelectorAll('.tab').forEach(function (b) {
