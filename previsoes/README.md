@@ -21,7 +21,7 @@ Previsões de futebol que se atualizam sozinhas, sem servidor.
 
 1. No repositório, vai a **Settings > Secrets and variables > Actions > Repository secrets > New repository secret**.
    Nome: `SPORTMONKS_API_TOKEN`. Valor: a tua chave da Sportmonks.
-   (Se guardares como segredo de um *Environment*, o workflow não o vê, a não ser que lhe digas o nome do ambiente.)
+   (Neste projeto o segredo está num *Environment* chamado `SPORTMONKS_API_TOKEN` e o workflow já declara `environment: SPORTMONKS_API_TOKEN`, por isso também funciona assim. Se o ambiente tiver revisores obrigatórios, cada execução fica à espera de aprovação.)
 2. Vai a **Actions > Atualizar previsões > Run workflow** para correr a primeira vez. Depois corre sozinho.
 3. Confirma que apareceram ficheiros em `previsoes/data/`.
 4. Em **Settings > Actions > General > Workflow permissions**, confirma "Read and write permissions".

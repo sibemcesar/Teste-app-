@@ -15,6 +15,7 @@ concurrency:
 jobs:
   gerar:
     runs-on: ubuntu-latest
+    environment: SPORTMONKS_API_TOKEN
     steps:
       - uses: actions/checkout@v4
 
