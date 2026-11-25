@@ -36,11 +36,11 @@ function merge(fresh, old) {
 const upToDate = (day) => day.matches.every((m) => !m.prediction || m.prediction.v === 2);
 
 async function main() {
-  if (!process.env.FOOTBALLDATA_TOKEN && !process.env.SPORTMONKS_API_TOKEN) {
-    console.error('Falta um segredo: FOOTBALLDATA_TOKEN (football-data.org) ou SPORTMONKS_API_TOKEN (Sportmonks).');
+  if (!process.env.STATSAPI_KEY && !process.env.FOOTBALLDATA_TOKEN && !process.env.SPORTMONKS_API_TOKEN) {
+    console.error('Falta um segredo: STATSAPI_KEY (TheStatsAPI), FOOTBALLDATA_TOKEN (football-data.org) ou SPORTMONKS_API_TOKEN (Sportmonks).');
     process.exit(1);
   }
-  console.log('Fonte de dados:', process.env.FOOTBALLDATA_TOKEN ? 'football-data.org' : 'Sportmonks');
+  console.log('Fonte de dados:', process.env.STATSAPI_KEY ? 'TheStatsAPI' : process.env.FOOTBALLDATA_TOKEN ? 'football-data.org' : 'Sportmonks');
   const { buildDay } = require('../lib/day');
   fs.mkdirSync(DATA, { recursive: true });
   const now = Date.now();
@@ -53,7 +53,7 @@ async function main() {
     const old = readJson(file);
     if (i >= 2 && old && upToDate(old)) { ok++; continue; } // dias fechados não se mexem (poupa pedidos à API)
     try {
-      const fresh = await buildDay(date);
+      const fresh = await buildDay(date, old);
       fresh.matches = merge(fresh, old);
       if (old && JSON.stringify(old.matches) === JSON.stringify(fresh.matches)) {
         console.log(date, 'sem alterações');

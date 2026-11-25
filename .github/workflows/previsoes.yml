@@ -33,6 +33,7 @@ jobs:
       - name: Gerar previsões
         working-directory: previsoes
         env:
+          STATSAPI_KEY: ${{ secrets.STATSAPI_KEY }}
           FOOTBALLDATA_TOKEN: ${{ secrets.FOOTBALLDATA_TOKEN }}
           SPORTMONKS_API_TOKEN: ${{ secrets.SPORTMONKS_API_TOKEN }}
         run: node scripts/gerar.js

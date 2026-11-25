@@ -5,16 +5,19 @@
 const E = require('./engine');
 
 function provider() {
+  if (process.env.STATSAPI_KEY) return require('./providers/statsapi');
   if (process.env.FOOTBALLDATA_TOKEN) return require('./providers/footballdata');
   if (process.env.SPORTMONKS_API_TOKEN) return require('./providers/sportmonks');
-  throw Object.assign(new Error('Falta FOOTBALLDATA_TOKEN ou SPORTMONKS_API_TOKEN'), { status: 500 });
+  throw Object.assign(new Error('Falta STATSAPI_KEY, FOOTBALLDATA_TOKEN ou SPORTMONKS_API_TOKEN'), { status: 500 });
 }
 
 const SKIP = new Set(['POSTPONED', 'CANCELLED', 'SUSPENDED', 'POSTP', 'CANCL', 'CANC', 'ABAN', 'PST']);
 
-async function buildDay(date) {
+// old (opcional): dia já guardado. Jogos com previsão v2 não precisam de histórico (a previsão está congelada).
+async function buildDay(date, old) {
   const P = provider();
-  const fixtures = await P.listFixtures(date);
+  const oldById = new Map(((old && old.matches) || []).map((m) => [m.id, m]));
+  const fixtures = await P.listFixtures(date, { old: oldById });
   const out = [];
 
   for (const f of fixtures) {
@@ -22,7 +25,9 @@ async function buildDay(date) {
     const { home, away } = E.sides(f);
     if (!home || !away) continue;
     const kick = E.kickoffTs(f);
-    const [hh, ah] = await Promise.all([P.history(home.id, date), P.history(away.id, date)]);
+    const o = oldById.get(f.id);
+    const frozen = !!(o && o.prediction && o.prediction.v === 2);
+    const [hh, ah] = frozen ? [[], []] : await Promise.all([P.history(home.id, date), P.history(away.id, date)]);
     // só jogos anteriores a este (evita "espreitar" o resultado), sem o próprio jogo
     const before = (h) => h.filter((x) => x.id !== f.id && E.kickoffTs(x) < kick);
     const fh = E.formOf(home.id, before(hh));
@@ -42,7 +47,7 @@ async function buildDay(date) {
       ht,
       home: { name: home.name, logo: home.image_path || '', form: formStr(fh) },
       away: { name: away.name, logo: away.image_path || '', form: formStr(fa) },
-      prediction: E.buildPrediction(fh, fa, E.toResult(final, ht)),
+      prediction: frozen ? null : E.buildPrediction(fh, fa, E.toResult(final, ht)),
     });
   }
 
