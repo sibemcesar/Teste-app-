@@ -16,10 +16,18 @@
   header{display:flex;align-items:center;gap:10px;padding:18px 0 12px}
   header h1{font-size:20px;margin:0;font-weight:700}
   header small{color:var(--mut);margin-left:auto}
-  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 14px}
-  .tab{border:0;border-radius:10px;padding:12px;font:600 13px inherit;letter-spacing:.06em;text-transform:uppercase;
-       background:transparent;color:var(--mut);cursor:pointer}
-  .tab.on{background:#26344d;color:var(--acc)}
+  .days{position:sticky;top:0;z-index:5;background:var(--bg);margin:0 -14px 12px;padding:6px 14px 10px;display:flex;gap:8px;
+        overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-bottom:1px solid var(--line)}
+  .days::-webkit-scrollbar{display:none}
+  .dchip{flex:0 0 auto;min-width:62px;scroll-snap-align:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:var(--card);
+         color:var(--mut);font:inherit;text-align:center;cursor:pointer;line-height:1.2}
+  .dchip b{display:block;font-size:17px;color:var(--tx)}
+  .dchip span{font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .dchip.fut span{color:var(--acc)}
+  .dchip.on{background:#26344d;border-color:var(--acc)}
+  .dchip.on span,.dchip.on b{color:var(--acc)}
+  summary.btn{display:block;text-align:center;border:1px solid var(--acc);border-radius:10px;padding:10px;margin-top:10px;font-weight:600}
+  details[open] summary.btn{background:#26344d}
   .banner{background:#3a2f12;color:var(--warn);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}
   .sum{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px;font-size:14px}
   .sum b{font-size:18px}
@@ -62,10 +70,7 @@
 <body>
 <div class="wrap">
   <header><h1>Previsões</h1><small id="today"></small></header>
-  <div class="tabs">
-    <button class="tab on" data-t="hoje">Hoje</button>
-    <button class="tab" data-t="ant">Anteriores</button>
-  </div>
+  <nav class="days" id="days" aria-label="Dias"></nav>
   <div id="banner"></div>
   <div id="view"><div class="empty">A carregar…</div></div>
   <footer>
@@ -203,7 +208,7 @@
         tipHtml += '<div class="conf"><span>Confiança ' + esc(b.confidence) + '</span><span>Golos esperados ' + p.xg[0] + ' – ' + p.xg[1] + '</span>' +
           (cs ? '<span>Resultado mais provável ' + esc(cs.label) + ' (' + pct(cs.prob) + ')</span>' : '') + '</div>';
         var g = groupsHtml(p);
-        rows = '<details open><summary>Todas as probabilidades (' + g.n + ')</summary>' +
+        rows = '<details><summary class="btn">Ver todas as probabilidades (' + g.n + ')</summary>' +
           '<p class="note">Probabilidade · odd justa (1 ÷ probabilidade). A opção mais provável de cada mercado está a negrito.</p>' + g.html +
           '<div class="chips">Forma ' + esc(m.home.name) + ': ' + chips(m.home.form) + '</div>' +
           '<div class="chips">Forma ' + esc(m.away.name) + ': ' + chips(m.away.form) + '</div></details>';
@@ -218,58 +223,58 @@
 
   function setBanner(msg) { $('#banner').innerHTML = msg ? '<div class="banner">' + msg + '</div>' : ''; }
 
-  function showToday() {
-    $('#view').innerHTML = '<div class="empty">A carregar…</div>';
-    var back = [0, -1, -2]; // hoje, amanhã, depois de amanhã
-    Promise.all(back.map(function (b) { return loadDay(utcDay(b), false); })).then(function (all) {
-      setBanner(DEMO ? DEMO_MSG : '');
-      var names = ['Hoje', 'Amanhã', 'Depois de amanhã'];
-      var html = '';
-      all.forEach(function (d, i) {
-        if (!d.matches.length) return;
-        // jogos por acontecer primeiro (com todas as probabilidades), os já terminados no fim
-        var ms = d.matches.slice().sort(function (a, b) {
-          return (a.finished ? 1 : 0) - (b.finished ? 1 : 0) || String(a.startingAt).localeCompare(String(b.startingAt));
-        });
-        html += '<div class="day">' + names[i] + ' · ' + esc(fmtDay(utcDay(back[i]))) + '</div>' + ms.map(card).join('');
-      });
-      if (!all[0].matches.length) {
-        html = '<div class="empty" style="padding:22px 10px">' + (all[0].missing
-          ? 'Ainda não há dados para hoje.<br>Os ficheiros são gerados pelo GitHub Actions. Se acabaste de configurar, corre o workflow em <b>Actions &gt; Atualizar previsões &gt; Run workflow</b> e espera 1 a 2 minutos.'
-          : 'Sem jogos hoje nas ligas disponíveis.') + '</div>' + html;
-      }
-      if (!html) html = '<div class="empty">Sem jogos nos próximos dias nas ligas disponíveis.</div>';
-      $('#view').innerHTML = html;
-    }).catch(fail);
+  var DAY_NAMES = { '-2': 'Depois', '-1': 'Amanhã', '0': 'Hoje', '1': 'Ontem' };
+  var RANGE = [7, 6, 5, 4, 3, 2, 1, 0, -1, -2]; // do mais antigo (esquerda) ao mais futuro (direita)
+  var current = 0;
+
+  function buildBar() {
+    $('#days').innerHTML = RANGE.map(function (b) {
+      var d = new Date(utcDay(b) + 'T12:00:00');
+      var top = DAY_NAMES[b] || d.toLocaleDateString('pt-PT', { weekday: 'short' }).replace('.', '');
+      return '<button class="dchip' + (b < 0 ? ' fut' : '') + '" data-b="' + b + '"><span>' + esc(top) + '</span><b>' + d.getDate() + '</b></button>';
+    }).join('');
+    $('#days').querySelectorAll('.dchip').forEach(function (c) {
+      c.addEventListener('click', function () { showDay(Number(c.dataset.b)); });
+    });
+  }
+  function markBar() {
+    $('#days').querySelectorAll('.dchip').forEach(function (c) {
+      var on = Number(c.dataset.b) === current;
+      c.classList.toggle('on', on);
+      if (on && c.scrollIntoView) { try { c.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch (e) { c.scrollIntoView(); } }
+    });
   }
 
-  function showPrev() {
+  function showDay(back) {
+    current = back; markBar();
+    var date = utcDay(back), past = back > 0;
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
-    var days = [];
-    for (var i = 1; i <= 7; i++) days.push(utcDay(i));
-    Promise.all(days.map(function (d) { return loadDay(d, true); })).then(function (all) {
+    loadDay(date, past).then(function (d) {
+      if (current !== back) return; // entretanto escolheste outro dia
       setBanner(DEMO ? DEMO_MSG : '');
-      var pre = { t: 0, ok: 0 }, rec = { t: 0, ok: 0 }, html = '';
-      all.forEach(function (d, i) {
+      var html = '<div class="day">' + esc(fmtDay(date)) + '</div>';
+      if (!d.matches.length) {
+        html += '<div class="empty" style="padding:22px 10px">' + (d.missing
+          ? (back <= 0 ? 'Ainda não há dados para este dia.<br>Os ficheiros são gerados pelo GitHub Actions. Se acabaste de configurar, corre o workflow em <b>Actions &gt; Atualizar previsões &gt; Run workflow</b> e espera uns minutos.' : 'Não há dados guardados para este dia.')
+          : 'Sem jogos neste dia nas ligas disponíveis.') + '</div>';
+        $('#view').innerHTML = html; return;
+      }
+      if (past) { // resumo de acertos do dia (só dicas registadas antes do jogo)
+        var pre = { t: 0, ok: 0 }, rec = { t: 0, ok: 0 };
         d.matches.forEach(function (m) {
           var p = norm(m.prediction);
           if (!m.finished || !p || (p.best.hit !== true && p.best.hit !== false)) return;
-          var g = m.preGame ? pre : rec;
-          g.t++; if (p.best.hit) g.ok++;
+          var g = m.preGame ? pre : rec; g.t++; if (p.best.hit) g.ok++;
         });
-        if (d.matches.length) html += '<div class="day">' + esc(fmtDay(days[i])) + '</div>' + d.matches.map(card).join('');
-      });
-      var sum = '';
-      if (pre.t) {
-        sum = '<div class="sum">Últimos 7 dias: <b>' + pre.ok + '/' + pre.t + '</b> dicas certas (' + Math.round(100 * pre.ok / pre.t) +
-          '%)<p>Só contam as dicas registadas antes do jogo, com a dica principal de cada um.' +
-          (rec.t ? ' Há mais ' + rec.t + ' jogo(s) calculados depois de terminarem, que não entram nesta conta.' : '') + '</p></div>';
-      } else if (rec.t) {
-        sum = '<div class="sum">Calculadas depois dos jogos: <b>' + rec.ok + '/' + rec.t + '</b> (' + Math.round(100 * rec.ok / rec.t) +
-          '%)<p>Estas previsões foram calculadas só com jogos anteriores a cada partida, mas depois de ela acontecer. ' +
-          'Mostram como o modelo teria ido, não são dicas publicadas antes. O registo verdadeiro começa a partir de agora.</p></div>';
+        if (pre.t) html += '<div class="sum">Dicas registadas antes do jogo: <b>' + pre.ok + '/' + pre.t + '</b> certas (' + Math.round(100 * pre.ok / pre.t) + '%)' +
+          (rec.t ? '<p>Mais ' + rec.t + ' jogo(s) calculados depois de terminarem, que não entram na conta.</p>' : '') + '</div>';
+        else if (rec.t) html += '<div class="sum">Calculadas depois dos jogos: <b>' + rec.ok + '/' + rec.t + '</b> (' + Math.round(100 * rec.ok / rec.t) +
+          '%)<p>Mostram como o modelo teria ido; não são dicas publicadas antes do jogo.</p></div>';
       }
-      $('#view').innerHTML = (sum + html) || '<div class="empty">Ainda não há jogos anteriores para mostrar.</div>';
+      var ms = d.matches.slice().sort(function (a, b) { // por acontecer primeiro, terminados no fim
+        return (a.finished ? 1 : 0) - (b.finished ? 1 : 0) || String(a.startingAt).localeCompare(String(b.startingAt));
+      });
+      $('#view').innerHTML = html + ms.map(card).join('');
     }).catch(fail);
   }
 
@@ -278,14 +283,9 @@
       'Verifica a ligação à internet. Para ver só o visual, abre com <b>?demo=1</b> no fim do endereço.</div>';
   }
 
-  document.querySelectorAll('.tab').forEach(function (b) {
-    b.addEventListener('click', function () {
-      document.querySelectorAll('.tab').forEach(function (x) { x.classList.toggle('on', x === b); });
-      if (b.dataset.t === 'hoje') showToday(); else showPrev();
-    });
-  });
   $('#today').textContent = new Date().toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
-  showToday();
+  buildBar();
+  showDay(0);
 })();
 </script>
 </body>
