@@ -1,0 +1,188 @@
+{
+ "date": "2026-11-24",
+ "generatedAt": "2026-11-25T05:32:32.579Z",
+ "matches": [
+  {
+   "id": 19722755,
+   "league": "Premiership",
+   "startingAt": "2026-11-24T19:45:00.000Z",
+   "state": "FT",
+   "finished": true,
+   "score": {
+    "home": 2,
+    "away": 1
+   },
+   "home": {
+    "name": "Hibernian",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/2/66.png",
+    "form": [
+     "D",
+     "V",
+     "E",
+     "D",
+     "D"
+    ]
+   },
+   "away": {
+    "name": "Dundee",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/28/284.png",
+    "form": [
+     "D",
+     "D",
+     "V",
+     "D",
+     "E"
+    ]
+   },
+   "prediction": {
+    "xg": [
+     2.13,
+     1.43
+    ],
+    "markets": [
+     {
+      "key": "1x2",
+      "label": "Resultado",
+      "secondary": false,
+      "pick": "1",
+      "pickLabel": "Vitória casa",
+      "prob": 0.536,
+      "fairOdd": 1.86,
+      "hit": true
+     },
+     {
+      "key": "goals",
+      "label": "Golos",
+      "secondary": false,
+      "pick": "O25",
+      "pickLabel": "Mais de 2,5",
+      "prob": 0.69,
+      "fairOdd": 1.45,
+      "hit": true
+     },
+     {
+      "key": "btts",
+      "label": "Ambas marcam",
+      "secondary": false,
+      "pick": "Y",
+      "pickLabel": "Sim",
+      "prob": 0.67,
+      "fairOdd": 1.49,
+      "hit": true
+     },
+     {
+      "key": "dc",
+      "label": "Dupla hipótese",
+      "secondary": true,
+      "pick": "12",
+      "pickLabel": "12",
+      "prob": 0.792,
+      "fairOdd": 1.26,
+      "hit": true
+     }
+    ],
+    "best": {
+     "key": "goals",
+     "label": "Golos",
+     "pickLabel": "Mais de 2,5",
+     "prob": 0.69,
+     "fairOdd": 1.45,
+     "confidence": "alta",
+     "hit": true
+    }
+   },
+   "preGame": false
+  },
+  {
+   "id": 19722752,
+   "league": "Premiership",
+   "startingAt": "2026-11-24T20:00:00.000Z",
+   "state": "FT",
+   "finished": true,
+   "score": {
+    "home": 3,
+    "away": 2
+   },
+   "home": {
+    "name": "Rangers",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/30/62.png",
+    "form": [
+     "V",
+     "V",
+     "E",
+     "V",
+     "E"
+    ]
+   },
+   "away": {
+    "name": "Aberdeen",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/17/273.png",
+    "form": [
+     "V",
+     "D",
+     "D",
+     "D",
+     "V"
+    ]
+   },
+   "prediction": {
+    "xg": [
+     2.18,
+     1.24
+    ],
+    "markets": [
+     {
+      "key": "1x2",
+      "label": "Resultado",
+      "secondary": false,
+      "pick": "1",
+      "pickLabel": "Vitória casa",
+      "prob": 0.588,
+      "fairOdd": 1.7,
+      "hit": true
+     },
+     {
+      "key": "goals",
+      "label": "Golos",
+      "secondary": false,
+      "pick": "O25",
+      "pickLabel": "Mais de 2,5",
+      "prob": 0.664,
+      "fairOdd": 1.51,
+      "hit": true
+     },
+     {
+      "key": "btts",
+      "label": "Ambas marcam",
+      "secondary": false,
+      "pick": "Y",
+      "pickLabel": "Sim",
+      "prob": 0.63,
+      "fairOdd": 1.59,
+      "hit": true
+     },
+     {
+      "key": "dc",
+      "label": "Dupla hipótese",
+      "secondary": true,
+      "pick": "12",
+      "pickLabel": "12",
+      "prob": 0.798,
+      "fairOdd": 1.25,
+      "hit": true
+     }
+    ],
+    "best": {
+     "key": "goals",
+     "label": "Golos",
+     "pickLabel": "Mais de 2,5",
+     "prob": 0.664,
+     "fairOdd": 1.51,
+     "confidence": "alta",
+     "hit": true
+    }
+   },
+   "preGame": false
+  }
+ ]
+}

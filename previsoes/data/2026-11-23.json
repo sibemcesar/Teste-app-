@@ -1,0 +1,188 @@
+{
+ "date": "2026-11-23",
+ "generatedAt": "2026-11-25T05:32:34.478Z",
+ "matches": [
+  {
+   "id": 19713853,
+   "league": "Superliga",
+   "startingAt": "2026-11-23T18:00:00.000Z",
+   "state": "FT",
+   "finished": true,
+   "score": {
+    "home": 0,
+    "away": 2
+   },
+   "home": {
+    "name": "Brøndby IF",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/5/293.png",
+    "form": [
+     "D",
+     "V",
+     "V",
+     "D",
+     "V"
+    ]
+   },
+   "away": {
+    "name": "FC Midtjylland",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/11/939.png",
+    "form": [
+     "E",
+     "V",
+     "V",
+     "V",
+     "V"
+    ]
+   },
+   "prediction": {
+    "xg": [
+     1.69,
+     1.5
+    ],
+    "markets": [
+     {
+      "key": "1x2",
+      "label": "Resultado",
+      "secondary": false,
+      "pick": "1",
+      "pickLabel": "Vitória casa",
+      "prob": 0.422,
+      "fairOdd": 2.37,
+      "hit": false
+     },
+     {
+      "key": "goals",
+      "label": "Golos",
+      "secondary": false,
+      "pick": "O25",
+      "pickLabel": "Mais de 2,5",
+      "prob": 0.618,
+      "fairOdd": 1.62,
+      "hit": false
+     },
+     {
+      "key": "btts",
+      "label": "Ambas marcam",
+      "secondary": false,
+      "pick": "Y",
+      "pickLabel": "Sim",
+      "prob": 0.633,
+      "fairOdd": 1.58,
+      "hit": false
+     },
+     {
+      "key": "dc",
+      "label": "Dupla hipótese",
+      "secondary": true,
+      "pick": "12",
+      "pickLabel": "12",
+      "prob": 0.766,
+      "fairOdd": 1.31,
+      "hit": true
+     }
+    ],
+    "best": {
+     "key": "btts",
+     "label": "Ambas marcam",
+     "pickLabel": "Sim",
+     "prob": 0.633,
+     "fairOdd": 1.58,
+     "confidence": "média",
+     "hit": false
+    }
+   },
+   "preGame": false
+  },
+  {
+   "id": 19722101,
+   "league": "Premier League",
+   "startingAt": "2026-11-23T20:00:00.000Z",
+   "state": "FT",
+   "finished": true,
+   "score": {
+    "home": 4,
+    "away": 0
+   },
+   "home": {
+    "name": "Brentford",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/12/236.png",
+    "form": [
+     "D",
+     "V",
+     "E",
+     "D",
+     "E"
+    ]
+   },
+   "away": {
+    "name": "Everton",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/13/13.png",
+    "form": [
+     "V",
+     "V",
+     "D",
+     "D",
+     "E"
+    ]
+   },
+   "prediction": {
+    "xg": [
+     1.33,
+     1.21
+    ],
+    "markets": [
+     {
+      "key": "1x2",
+      "label": "Resultado",
+      "secondary": false,
+      "pick": "1",
+      "pickLabel": "Vitória casa",
+      "prob": 0.395,
+      "fairOdd": 2.53,
+      "hit": true
+     },
+     {
+      "key": "goals",
+      "label": "Golos",
+      "secondary": false,
+      "pick": "U25",
+      "pickLabel": "Menos de 2,5",
+      "prob": 0.536,
+      "fairOdd": 1.87,
+      "hit": false
+     },
+     {
+      "key": "btts",
+      "label": "Ambas marcam",
+      "secondary": false,
+      "pick": "Y",
+      "pickLabel": "Sim",
+      "prob": 0.514,
+      "fairOdd": 1.94,
+      "hit": false
+     },
+     {
+      "key": "dc",
+      "label": "Dupla hipótese",
+      "secondary": true,
+      "pick": "12",
+      "pickLabel": "12",
+      "prob": 0.732,
+      "fairOdd": 1.37,
+      "hit": true
+     }
+    ],
+    "best": {
+     "key": "goals",
+     "label": "Golos",
+     "pickLabel": "Menos de 2,5",
+     "prob": 0.536,
+     "fairOdd": 1.87,
+     "confidence": "baixa",
+     "hit": false
+    }
+   },
+   "preGame": false
+  }
+ ]
+}

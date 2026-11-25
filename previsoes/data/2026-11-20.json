@@ -1,0 +1,188 @@
+{
+ "date": "2026-11-20",
+ "generatedAt": "2026-11-25T05:32:54.195Z",
+ "matches": [
+  {
+   "id": 19713849,
+   "league": "Superliga",
+   "startingAt": "2026-11-20T18:00:00.000Z",
+   "state": "FT",
+   "finished": true,
+   "score": {
+    "home": 2,
+    "away": 1
+   },
+   "home": {
+    "name": "AGF",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/25/2905.png",
+    "form": [
+     "V",
+     "D",
+     "V",
+     "E",
+     "V"
+    ]
+   },
+   "away": {
+    "name": "Lyngby Boldklub",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/26/2650.png",
+    "form": [
+     "D",
+     "V",
+     "D",
+     "E",
+     "D"
+    ]
+   },
+   "prediction": {
+    "xg": [
+     1.97,
+     1.17
+    ],
+    "markets": [
+     {
+      "key": "1x2",
+      "label": "Resultado",
+      "secondary": false,
+      "pick": "1",
+      "pickLabel": "Vitória casa",
+      "prob": 0.559,
+      "fairOdd": 1.79,
+      "hit": true
+     },
+     {
+      "key": "goals",
+      "label": "Golos",
+      "secondary": false,
+      "pick": "O25",
+      "pickLabel": "Mais de 2,5",
+      "prob": 0.609,
+      "fairOdd": 1.64,
+      "hit": true
+     },
+     {
+      "key": "btts",
+      "label": "Ambas marcam",
+      "secondary": false,
+      "pick": "Y",
+      "pickLabel": "Sim",
+      "prob": 0.595,
+      "fairOdd": 1.68,
+      "hit": true
+     },
+     {
+      "key": "dc",
+      "label": "Dupla hipótese",
+      "secondary": true,
+      "pick": "12",
+      "pickLabel": "12",
+      "prob": 0.783,
+      "fairOdd": 1.28,
+      "hit": true
+     }
+    ],
+    "best": {
+     "key": "goals",
+     "label": "Golos",
+     "pickLabel": "Mais de 2,5",
+     "prob": 0.609,
+     "fairOdd": 1.64,
+     "confidence": "média",
+     "hit": true
+    }
+   },
+   "preGame": false
+  },
+  {
+   "id": 19735116,
+   "league": "Bundesliga",
+   "startingAt": "2026-11-20T19:30:00.000Z",
+   "state": "FT",
+   "finished": true,
+   "score": {
+    "home": 1,
+    "away": 1
+   },
+   "home": {
+    "name": "FC Bayern München",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/23/503.png",
+    "form": [
+     "V",
+     "E",
+     "V",
+     "V",
+     "E"
+    ]
+   },
+   "away": {
+    "name": "FC Köln",
+    "logo": "https://cdn.sportmonks.com/images/soccer/teams/24/3320.png",
+    "form": [
+     "D",
+     "E",
+     "E",
+     "D",
+     "V"
+    ]
+   },
+   "prediction": {
+    "xg": [
+     2.15,
+     1.04
+    ],
+    "markets": [
+     {
+      "key": "1x2",
+      "label": "Resultado",
+      "secondary": false,
+      "pick": "1",
+      "pickLabel": "Vitória casa",
+      "prob": 0.626,
+      "fairOdd": 1.6,
+      "hit": false
+     },
+     {
+      "key": "goals",
+      "label": "Golos",
+      "secondary": false,
+      "pick": "O25",
+      "pickLabel": "Mais de 2,5",
+      "prob": 0.619,
+      "fairOdd": 1.62,
+      "hit": false
+     },
+     {
+      "key": "btts",
+      "label": "Ambas marcam",
+      "secondary": false,
+      "pick": "Y",
+      "pickLabel": "Sim",
+      "prob": 0.573,
+      "fairOdd": 1.75,
+      "hit": true
+     },
+     {
+      "key": "dc",
+      "label": "Dupla hipótese",
+      "secondary": true,
+      "pick": "1X",
+      "pickLabel": "1X",
+      "prob": 0.826,
+      "fairOdd": 1.21,
+      "hit": true
+     }
+    ],
+    "best": {
+     "key": "1x2",
+     "label": "Resultado",
+     "pickLabel": "Vitória casa",
+     "prob": 0.626,
+     "fairOdd": 1.6,
+     "confidence": "média",
+     "hit": false
+    }
+   },
+   "preGame": false
+  }
+ ]
+}
