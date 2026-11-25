@@ -195,15 +195,19 @@
       var cs = null;
       p.groups.forEach(function (g) { if (g.key === 'cs' && g.options[0]) cs = g.options[0]; });
       tipHtml = '<div class="tip"><span class="lbl">TIP:</span><span class="pill">' + esc(b.short || b.label) + ': ' + esc(b.pickLabel) +
-        '</span><span class="pct">' + pct(b.prob) + '</span><span class="odd" title="Odd justa segundo o modelo">' + oddOf(b.prob) + '</span></div>' +
-        '<div class="conf"><span>Confiança ' + esc(b.confidence) + '</span><span>Golos esperados ' + p.xg[0] + ' – ' + p.xg[1] + '</span>' +
-        (cs ? '<span>Resultado mais provável ' + esc(cs.label) + ' (' + pct(cs.prob) + ')</span>' : '') +
-        (m.preGame ? '<span>registada antes do jogo</span>' : '') + resMark(b.hit) + '</div>';
-      var g = groupsHtml(p);
-      rows = '<details><summary>Ver todas as probabilidades (' + g.n + ')</summary>' +
-        '<p class="note">Probabilidade · odd justa (1 ÷ probabilidade). A opção mais provável de cada mercado está a negrito.</p>' + g.html +
-        '<div class="chips">Forma ' + esc(m.home.name) + ': ' + chips(m.home.form) + '</div>' +
-        '<div class="chips">Forma ' + esc(m.away.name) + ': ' + chips(m.away.form) + '</div></details>';
+        '</span><span class="pct">' + pct(b.prob) + '</span><span class="odd" title="Odd justa segundo o modelo">' + oddOf(b.prob) + '</span></div>';
+      if (m.finished) {
+        // jogo terminado: só o resultado e se a dica acertou (as probabilidades são para os jogos por acontecer)
+        tipHtml += '<div class="conf">' + (m.preGame ? '<span>registada antes do jogo</span>' : '<span>calculada depois do jogo</span>') + resMark(b.hit) + '</div>';
+      } else {
+        tipHtml += '<div class="conf"><span>Confiança ' + esc(b.confidence) + '</span><span>Golos esperados ' + p.xg[0] + ' – ' + p.xg[1] + '</span>' +
+          (cs ? '<span>Resultado mais provável ' + esc(cs.label) + ' (' + pct(cs.prob) + ')</span>' : '') + '</div>';
+        var g = groupsHtml(p);
+        rows = '<details open><summary>Todas as probabilidades (' + g.n + ')</summary>' +
+          '<p class="note">Probabilidade · odd justa (1 ÷ probabilidade). A opção mais provável de cada mercado está a negrito.</p>' + g.html +
+          '<div class="chips">Forma ' + esc(m.home.name) + ': ' + chips(m.home.form) + '</div>' +
+          '<div class="chips">Forma ' + esc(m.away.name) + ': ' + chips(m.away.form) + '</div></details>';
+      }
     }
     return '<div class="card"><div class="top"><span>' + esc(m.league) + '</span><span>' + esc(hhmm(m.startingAt)) +
       (m.finished ? ' · terminado' : '') + '</span></div>' +
@@ -223,7 +227,11 @@
       var html = '';
       all.forEach(function (d, i) {
         if (!d.matches.length) return;
-        html += '<div class="day">' + names[i] + ' · ' + esc(fmtDay(utcDay(back[i]))) + '</div>' + d.matches.map(card).join('');
+        // jogos por acontecer primeiro (com todas as probabilidades), os já terminados no fim
+        var ms = d.matches.slice().sort(function (a, b) {
+          return (a.finished ? 1 : 0) - (b.finished ? 1 : 0) || String(a.startingAt).localeCompare(String(b.startingAt));
+        });
+        html += '<div class="day">' + names[i] + ' · ' + esc(fmtDay(utcDay(back[i]))) + '</div>' + ms.map(card).join('');
       });
       if (!all[0].matches.length) {
         html = '<div class="empty" style="padding:22px 10px">' + (all[0].missing

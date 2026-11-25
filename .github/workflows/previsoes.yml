@@ -4,6 +4,13 @@ on:
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
+  # corre também quando o código do gerador muda (o relógio do GitHub atrasa muitas vezes)
+  push:
+    branches: [main]
+    paths:
+      - 'previsoes/lib/**'
+      - 'previsoes/scripts/**'
+      - '.github/workflows/previsoes.yml'
 
 permissions:
   contents: write
