@@ -5,6 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const E = require('../lib/engine');
+const S = require('../lib/stats');
 
 const DATA = path.join(__dirname, '..', 'data');
 const DAY = 86400000;
@@ -67,6 +68,17 @@ async function main() {
       console.error(date, 'erro:', e.message);
     }
   }
+  // estatísticas de desempenho (só se mudaram, para não criar commits à toa)
+  try {
+    const days = fs.readdirSync(DATA).filter((f) => /^\d{4}-\d\d-\d\d\.json$/.test(f)).map((f) => readJson(path.join(DATA, f))).filter(Boolean);
+    const stats = S.compute(days);
+    const file = path.join(DATA, 'desempenho.json');
+    const prev = readJson(file);
+    if (!prev || JSON.stringify({ ...prev, generatedAt: 0 }) !== JSON.stringify({ ...stats, generatedAt: 0 })) {
+      fs.writeFileSync(file, JSON.stringify({ generatedAt: new Date().toISOString(), ...stats }) + '\n');
+      console.log('desempenho atualizado:', stats.all.games, 'jogos analisados');
+    }
+  } catch (e) { console.error('desempenho: erro', e.message); }
   if (!ok) process.exit(1); // tudo falhou: o workflow fica vermelho
   if (falhas) console.warn(falhas + ' dia(s) falharam, os outros ficaram atualizados.');
 }

@@ -4,7 +4,7 @@
   "private": true,
   "description": "Previsões de futebol automáticas (Sportmonks + modelo de Poisson + GitHub Actions)",
   "scripts": {
-    "test": "node test/engine.test.js && node test/gerar.test.js && node test/footballdata.test.js && node test/statsapi.test.js",
+    "test": "node test/engine.test.js && node test/gerar.test.js && node test/footballdata.test.js && node test/statsapi.test.js && node test/stats.test.js",
     "gerar": "node scripts/gerar.js"
   },
   "engines": {

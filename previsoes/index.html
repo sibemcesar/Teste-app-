@@ -15,7 +15,24 @@
   .wrap{max-width:560px;margin:0 auto;padding:0 14px 40px}
   header{display:flex;align-items:center;gap:10px;padding:18px 0 12px}
   header h1{font-size:20px;margin:0;font-weight:700}
-  header small{color:var(--mut);margin-left:auto}
+  header small{color:var(--mut)}
+  header .perf{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--acc);border-radius:999px;padding:6px 12px;font:600 12px inherit;cursor:pointer}
+  header .perf.on{background:#26344d;border-color:var(--acc)}
+  .pbox{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+  .pbox h3{margin:0 0 8px;font-size:14px}
+  .pbox p{margin:6px 0 0;color:var(--mut);font-size:12px}
+  .big{font-size:26px;font-weight:700}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+  .seg button{border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:10px;padding:9px;font:600 12px inherit;cursor:pointer}
+  .seg button.on{background:#26344d;color:var(--acc);border-color:var(--acc)}
+  .prow{display:grid;grid-template-columns:96px 1fr 76px;gap:8px;align-items:center;font-size:12px;padding:5px 0}
+  .prow.w{grid-template-columns:1fr 1fr 76px}
+  .pbar{position:relative;height:14px;background:#0f1522;border-radius:7px;overflow:hidden}
+  .pbar i{position:absolute;left:0;top:0;bottom:0;background:#3b5b8f;opacity:.55}
+  .pbar b{position:absolute;left:0;top:4px;bottom:4px;background:var(--acc);border-radius:3px}
+  .prow .r{text-align:right;color:var(--mut)}
+  .prow.low{opacity:.5}
+  .tagw{color:var(--warn)}.tago{color:var(--ok)}
   .days{position:sticky;top:0;z-index:5;background:var(--bg);margin:0 -14px 12px;padding:6px 14px 10px;display:flex;gap:8px;
         overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-bottom:1px solid var(--line)}
   .days::-webkit-scrollbar{display:none}
@@ -83,7 +100,7 @@
 </head>
 <body>
 <div class="wrap">
-  <header><h1>Previsões</h1><small id="today"></small></header>
+  <header><h1>Previsões</h1><button class="perf" id="perf" type="button">Desempenho</button><small id="today"></small></header>
   <nav class="days" id="days" aria-label="Dias"></nav>
   <div class="srch" id="search"><input id="q" type="search" placeholder="Pesquisar equipa ou liga…" autocomplete="off" aria-label="Pesquisar jogos"></div>
   <div id="banner"></div>
@@ -260,7 +277,7 @@
   }
 
   function showDay(back) {
-    current = back; markBar();
+    setPerf(false); current = back; markBar();
     var date = utcDay(back), past = back > 0;
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
     $('#search').style.display = past ? 'none' : '';
@@ -268,6 +285,64 @@
       if (current !== back) return; // entretanto escolheste outro dia
       cache = { back: back, d: d };
       render();
+    }).catch(fail);
+  }
+
+  var perfOn = false;
+  function setPerf(on) {
+    perfOn = on; $('#perf').classList.toggle('on', on);
+    $('#search').style.display = on || current > 0 ? 'none' : '';
+    $('#days').querySelectorAll('.dchip').forEach(function (c) { if (on) c.classList.remove('on'); });
+  }
+  function demoStats() {
+    var mk = function (k) { return { n: 40 * k, hits: 0, avgProb: 0 }; };
+    var bins = [[0.2, 0.3, 140, 0.27], [0.4, 0.5, 220, 0.43], [0.5, 0.6, 180, 0.49], [0.6, 0.7, 120, 0.58], [0.7, 0.8, 60, 0.69]].map(function (b) {
+      return { from: b[0], to: b[1], n: b[2], hits: Math.round(b[2] * b[3]), avgProb: (b[0] + b[1]) / 2 }; });
+    var sm = { games: 38, best: { n: 38, hits: 22, avgProb: 0.6 }, leagues: [{ league: 'Liga Demo A', n: 20, hits: 12 }, { league: 'Liga Demo B', n: 18, hits: 10 }],
+      groups: [{ key: '1x2', label: 'Resultado final (1X2)', n: 114, hits: 38, avgProb: 0.33 }, { key: 'btts', label: 'Ambas marcam', n: 76, hits: 40, avgProb: 0.52 }], bins: bins };
+    return { days: 12, pre: sm, all: sm };
+  }
+  var perfMode = 'pre';
+  function pct1(x) { return Math.round(x * 100) + '%'; }
+  function verdict(n, avg, rate) {
+    if (n < 30) return '<span class="r">amostra pequena</span>';
+    var d = rate - avg;
+    return Math.abs(d) < 0.05 ? '<span class="tago">ajustado</span>' : d < 0 ? '<span class="tagw">otimista</span>' : '<span class="tago">conservador</span>';
+  }
+  function showStats() {
+    setPerf(true); setBanner(DEMO ? DEMO_MSG : '');
+    $('#view').innerHTML = '<div class="empty">A carregar…</div>';
+    var get = DEMO ? Promise.resolve(demoStats()) : fetch(DATA_BASE + 'desempenho.json', { cache: 'no-store' }).then(function (r) {
+      if (r.status === 404) return null; if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    get.then(function (st) {
+      if (!perfOn) return;
+      if (!st) { $('#view').innerHTML = '<div class="empty">Ainda não há estatísticas. O gerador cria-as quando houver jogos terminados.</div>'; return; }
+      var S = st[perfMode];
+      var seg = '<div class="seg"><button data-m="pre" class="' + (perfMode === 'pre' ? 'on' : '') + '">Só antes do jogo</button><button data-m="all" class="' + (perfMode === 'all' ? 'on' : '') + '">Todos os jogos</button></div>';
+      var note = perfMode === 'pre' ? 'Só jogos cuja previsão foi guardada antes do apito: o registo verdadeiro.' : 'Inclui previsões calculadas depois do jogo (só com dados anteriores a ele). Mostram como o modelo teria ido.';
+      var html = seg;
+      if (!S.games) {
+        $('#view').innerHTML = html + '<div class="empty" style="padding:22px 10px">Ainda não há jogos terminados com previsão registada antes do jogo. Esta página enche-se à medida que os jogos acabam.</div>';
+      } else {
+        var rate = S.best.n ? S.best.hits / S.best.n : 0;
+        html += '<div class="pbox"><h3>Dica principal</h3><div class="big">' + S.best.hits + '/' + S.best.n + ' <small style="font-size:14px;color:var(--mut)">(' + pct1(rate) + ')</small></div>' +
+          '<p>O modelo esperava acertar ' + (S.best.avgProb != null ? pct1(S.best.avgProb) : '—') + ' em média. ' + note + (S.best.n < 30 ? ' Com menos de 30 jogos a amostra é pequena: não tires conclusões.' : '') + '</p></div>';
+        html += '<div class="pbox"><h3>Previsto vs real</h3><p style="margin:0 0 6px">Em cada faixa de probabilidade: a barra escura é o que o modelo previu, a azul brilhante é o que realmente aconteceu.</p>' +
+          S.bins.map(function (b) {
+            var rt = b.hits / b.n;
+            return '<div class="prow w' + (b.n < 30 ? ' low' : '') + '"><span>' + Math.round(b.from * 100) + '–' + Math.round(b.to * 100) + '% <span class="r">(' + b.n + ')</span></span>' +
+              '<span class="pbar"><i style="width:' + Math.round(b.avgProb * 100) + '%"></i><b style="width:' + Math.round(rt * 100) + '%"></b></span>' +
+              '<span class="r">' + pct1(b.avgProb) + ' → ' + pct1(rt) + '</span></div><div style="text-align:right;margin-top:-4px;font-size:11px">' + verdict(b.n, b.avgProb, rt) + '</div>';
+          }).join('') + '<p>Se a barra brilhante fica abaixo da escura, o modelo é otimista nessa faixa.</p></div>';
+        html += '<div class="pbox"><h3>Por mercado</h3>' + S.groups.map(function (g) {
+          var rt = g.hits / g.n;
+          return '<div class="prow' + (g.n < 30 ? ' low' : '') + '"><span>' + esc(g.label) + '</span><span class="pbar"><i style="width:' + Math.round(g.avgProb * 100) + '%"></i><b style="width:' + Math.round(rt * 100) + '%"></b></span>' +
+            '<span class="r">' + pct1(g.avgProb) + ' → ' + pct1(rt) + '</span></div>'; }).join('') + '<p>Média de todas as opções do mercado: previsto → real.</p></div>';
+        if (S.leagues.length) html += '<div class="pbox"><h3>Por liga (dica principal)</h3>' + S.leagues.map(function (l) {
+          return '<div class="prow" style="grid-template-columns:1fr 80px"><span>' + esc(l.league) + '</span><span class="r">' + l.hits + '/' + l.n + ' · ' + pct1(l.hits / l.n) + '</span></div>'; }).join('') + '</div>';
+        $('#view').innerHTML = html;
+      }
+      $('#view').querySelectorAll('.seg button').forEach(function (b) { b.addEventListener('click', function () { perfMode = b.dataset.m; showStats(); }); });
     }).catch(fail);
   }
 
@@ -328,7 +403,8 @@
   }
 
   $('#today').textContent = new Date().toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
-  $('#q').addEventListener('input', render);
+  $('#q').addEventListener('input', function () { if (!perfOn) render(); });
+  $('#perf').addEventListener('click', function () { if (perfOn) showDay(current); else showStats(); });
   buildBar();
   showDay(0);
 })();
