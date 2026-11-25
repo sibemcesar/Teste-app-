@@ -36,10 +36,11 @@ function merge(fresh, old) {
 const upToDate = (day) => day.matches.every((m) => !m.prediction || m.prediction.v === 2);
 
 async function main() {
-  if (!process.env.SPORTMONKS_API_TOKEN) {
-    console.error('Falta o segredo SPORTMONKS_API_TOKEN.');
+  if (!process.env.FOOTBALLDATA_TOKEN && !process.env.SPORTMONKS_API_TOKEN) {
+    console.error('Falta um segredo: FOOTBALLDATA_TOKEN (football-data.org) ou SPORTMONKS_API_TOKEN (Sportmonks).');
     process.exit(1);
   }
+  console.log('Fonte de dados:', process.env.FOOTBALLDATA_TOKEN ? 'football-data.org' : 'Sportmonks');
   const { buildDay } = require('../lib/day');
   fs.mkdirSync(DATA, { recursive: true });
   const now = Date.now();

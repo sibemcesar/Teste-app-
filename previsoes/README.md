@@ -10,6 +10,18 @@ Previsões de futebol que se atualizam sozinhas, sem servidor.
 - `.github/workflows/previsoes.yml` (na raiz do repositório): corre o gerador de 30 em 30 minutos.
 - `api/previsoes.js`: opcional, só se quiseres usar a Vercel em vez do GitHub.
 
+## Fonte de dados (escolhe uma)
+
+O gerador usa a **football-data.org** se existir o segredo `FOOTBALLDATA_TOKEN`; senão usa a **Sportmonks** (`SPORTMONKS_API_TOKEN`).
+
+**football-data.org (recomendada):** plano grátis com 10 pedidos por minuto, sem limite diário. Faz 1 pedido por competição por execução (a época inteira), e inclui estas competições: Premier League, Championship, Bundesliga, Serie A, La Liga, Ligue 1, Eredivisie, Primeira Liga, Brasileirão Série A e Champions League. Não tem a National League inglesa nem a Serie B italiana.
+1. Regista-te em https://www.football-data.org/client/register e copia o token que chega por email.
+2. No GitHub, no mesmo sítio onde puseste a chave da Sportmonks (Settings > Secrets and variables > Actions, ou dentro do ambiente `SPORTMONKS_API_TOKEN`), cria o segredo `FOOTBALLDATA_TOKEN` com o token.
+3. Corre o workflow (Actions > Atualizar previsões > Run workflow). No registo da execução aparece "Fonte de dados: football-data.org".
+4. Se quiseres outras competições do teu plano, define a variável `FD_COMPETITIONS` (códigos separados por vírgula, por exemplo `PL,SA,PD`) no passo "Gerar previsões" do workflow. Competições que o plano não permite são ignoradas com um aviso.
+
+Os dados de cada jogo passam a vir da fonte nova. Os dias já fechados que foram gerados com a Sportmonks ficam como estão.
+
 ## Como funciona
 
 1. O workflow corre de 30 em 30 minutos com o segredo `SPORTMONKS_API_TOKEN`.

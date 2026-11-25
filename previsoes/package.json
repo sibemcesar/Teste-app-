@@ -1,11 +1,13 @@
 {
   "name": "previsoes",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Previsões de futebol automáticas (Sportmonks + modelo de Poisson + GitHub Actions)",
   "scripts": {
-    "test": "node test/engine.test.js && node test/gerar.test.js",
+    "test": "node test/engine.test.js && node test/gerar.test.js && node test/footballdata.test.js",
     "gerar": "node scripts/gerar.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }
