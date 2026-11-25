@@ -196,12 +196,22 @@
 
   function showToday() {
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
-    loadDay(utcDay(0), false).then(function (d) {
+    var back = [0, -1, -2]; // hoje, amanhã, depois de amanhã
+    Promise.all(back.map(function (b) { return loadDay(utcDay(b), false); })).then(function (all) {
       setBanner(useDemo ? DEMO_MSG : '');
-      var ms = d.matches;
-      $('#view').innerHTML = ms.length ? ms.map(card).join('') : d.missing
-        ? '<div class="empty">Ainda não há dados para hoje.<br><br>Os ficheiros são gerados pelo GitHub Actions. Se acabaste de configurar, corre o workflow em <b>Actions &gt; Atualizar previsões &gt; Run workflow</b> e espera 1 a 2 minutos.</div>'
-        : '<div class="empty">Sem jogos nas ligas disponíveis hoje.</div>';
+      var names = ['Hoje', 'Amanhã', 'Depois de amanhã'];
+      var html = '';
+      all.forEach(function (d, i) {
+        if (!d.matches.length) return;
+        html += '<div class="day">' + names[i] + ' · ' + esc(fmtDay(utcDay(back[i]))) + '</div>' + d.matches.map(card).join('');
+      });
+      if (!all[0].matches.length) {
+        html = '<div class="empty" style="padding:22px 10px">' + (all[0].missing
+          ? 'Ainda não há dados para hoje.<br>Os ficheiros são gerados pelo GitHub Actions. Se acabaste de configurar, corre o workflow em <b>Actions &gt; Atualizar previsões &gt; Run workflow</b> e espera 1 a 2 minutos.'
+          : 'Sem jogos hoje nas ligas disponíveis.') + '</div>' + html;
+      }
+      if (!html) html = '<div class="empty">Sem jogos nos próximos dias nas ligas disponíveis.</div>';
+      $('#view').innerHTML = html;
     }).catch(fail);
   }
 

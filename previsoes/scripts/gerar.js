@@ -50,7 +50,9 @@ async function main() {
   const now = Date.now();
   let ok = 0, falhas = 0;
 
-  for (let i = 0; i <= 7; i++) {
+  // i negativo = dias futuros: amanhã (-1) e depois de amanhã (-2), para a página nunca ficar vazia
+  // e para as previsões ficarem registadas com antecedência. i = 0 é hoje, 1..7 são os dias passados.
+  for (let i = -2; i <= 7; i++) {
     const date = iso(now - i * DAY);
     const file = path.join(DATA, date + '.json');
     const old = readJson(file);
