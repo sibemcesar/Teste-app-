@@ -37,15 +37,21 @@
   .pill{background:var(--card2);border-radius:8px;padding:6px 10px;font-weight:700;font-size:13px}
   .pct{margin-left:auto;font-weight:700}
   .odd{background:var(--okbg);color:var(--ok);border-radius:8px;padding:7px 10px;font-weight:800}
-  .conf{font-size:11px;color:var(--mut);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
-  .res{font-weight:800}.res.ok{color:var(--ok)}.res.no{color:var(--bad)}
+  .conf{font-size:11px;color:var(--mut);margin-top:6px;display:flex;gap:4px 12px;flex-wrap:wrap}
+  .res{font-weight:800}.res.ok{color:var(--ok)}.res.no{color:var(--bad)}.res.vd{color:var(--warn)}
   details{margin-top:8px}
-  summary{cursor:pointer;color:var(--acc);font-size:13px;list-style:none}
+  summary{cursor:pointer;color:var(--acc);font-size:13px;list-style:none;padding:4px 0}
   summary::-webkit-details-marker{display:none}
-  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
-  td{padding:6px 4px;border-top:1px solid var(--line)}
-  td:last-child{text-align:right;color:var(--mut)}
-  .chips{display:flex;gap:4px;margin-top:8px;align-items:center;font-size:12px;color:var(--mut)}
+  .note{color:var(--mut);font-size:11px;margin:6px 0 0}
+  .grp{margin:16px 0 2px;font-weight:700;font-size:12px;color:var(--acc);text-transform:uppercase;letter-spacing:.05em}
+  table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+  td{padding:6px 4px;border-top:1px solid var(--line);overflow-wrap:anywhere}
+  td.n{width:auto}
+  td.pr{width:84px;text-align:right;white-space:nowrap}
+  td.od{width:46px;text-align:right;color:var(--mut)}
+  td.mk{width:22px;text-align:center}
+  tr.hi td.n,tr.hi td.pr{font-weight:800}
+  .chips{display:flex;gap:4px;margin-top:10px;align-items:center;font-size:12px;color:var(--mut);flex-wrap:wrap}
   .chip{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-weight:800;font-size:11px;color:#0b0d12}
   .V{background:var(--ok)}.E{background:var(--warn)}.D{background:var(--bad)}
   .empty{text-align:center;color:var(--mut);padding:40px 10px}
@@ -65,7 +71,8 @@
   <footer>
     Previsões estatísticas automáticas (modelo de Poisson sobre os golos recentes de cada equipa). Não são garantias nem
     aconselhamento financeiro. A "odd justa" é a odd que o modelo considera equilibrada: só tem valor se a casa de apostas
-    pagar mais do que isso, e o modelo pode estar errado. Aposta apenas o que podes perder.
+    pagar mais do que isso, e o modelo pode estar errado. O modelo não sabe de lesões, suspensões nem motivação, e os mercados
+    de intervalo e HT/FT usam uma divisão fixa de golos por parte, por isso são os menos fiáveis. Aposta apenas o que podes perder.
   </footer>
 </div>
 
@@ -83,58 +90,42 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 
-  // YYYY-MM-DD no fuso do utilizador
-  function ymd(d) {
-    var m = d.getMonth() + 1, day = d.getDate();
-    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
-  }
-  // Data UTC (é a que dá nome aos ficheiros de dados), "back" dias atrás
-  function utcDay(back) { return new Date(Date.now() - back * 86400000).toISOString().slice(0, 10); }
   function hhmm(iso) { return new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }); }
   function pct(p) { return Math.round(p * 100) + '%'; }
+  function oddOf(p) { return p >= 0.01 ? (1 / p).toFixed(2) : '—'; }
+  // Data UTC (é a que dá nome aos ficheiros de dados), "back" dias atrás (negativo = no futuro)
+  function utcDay(back) { return new Date(Date.now() - back * 86400000).toISOString().slice(0, 10); }
   function fmtDay(s) {
     return new Date(s + 'T12:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
   }
 
   // ---------- dados de demonstração (FICTÍCIOS) ----------
   function demoDay(dateStr, isPast) {
-    var mk = function (id, lg, hh, mm, h, a, ph, pa, best, extra) {
-      var d = new Date(dateStr + 'T' + hh + ':' + mm + ':00');
-      var m = {
-        id: id, league: lg, startingAt: d.toISOString(), state: isPast ? 'FT' : 'NS', finished: isPast, preGame: true,
-        score: isPast ? extra.score : null,
-        home: { name: h, logo: '', form: ph }, away: { name: a, logo: '', form: pa },
-        prediction: {
-          xg: extra.xg,
-          markets: extra.markets,
-          best: best
-        }
-      };
-      return m;
-    };
-    function mkt(key, label, pickLabel, prob, hit, sec) {
-      return { key: key, label: label, secondary: !!sec, pick: pickLabel, pickLabel: pickLabel, prob: prob,
-               fairOdd: Math.round(100 / prob) / 100, hit: hit };
-    }
     var hit = function (v) { return isPast ? v : null; };
-    var m1 = [mkt('1x2', 'Resultado', 'Vitória casa', 0.52, hit(true)), mkt('goals', 'Golos', 'Mais de 2,5', 0.58, hit(true)),
-              mkt('btts', 'Ambas marcam', 'Sim', 0.61, hit(true)), mkt('dc', 'Dupla hipótese', '1X', 0.77, hit(true), true)];
-    var m2 = [mkt('1x2', 'Resultado', 'Empate', 0.34, hit(false)), mkt('goals', 'Golos', 'Menos de 2,5', 0.64, hit(false)),
-              mkt('btts', 'Ambas marcam', 'Não', 0.53, hit(true)), mkt('dc', 'Dupla hipótese', 'X2', 0.66, hit(false), true)];
+    var op = function (id, label, prob, h) { return { id: id, label: label, prob: prob, hit: hit(h === undefined ? null : h) }; };
+    function pred(best, xg, win) {
+      return { v: 2, xg: xg, best: best, groups: [
+        { key: '1x2', label: 'Resultado final (1X2)', options: [op('1x2:1', 'Vitória casa', win ? 0.52 : 0.31, win), op('1x2:X', 'Empate', 0.25, !win), op('1x2:2', 'Vitória fora', win ? 0.23 : 0.44, false)] },
+        { key: 'ou', label: 'Total de golos do jogo', options: [op('ou:o1.5', 'Mais de 1,5', 0.8, true), op('ou:o2.5', 'Mais de 2,5', win ? 0.58 : 0.36, win), op('ou:u2.5', 'Menos de 2,5', win ? 0.42 : 0.64, !win), op('ou:o3.5', 'Mais de 3,5', 0.3, false)] },
+        { key: 'btts', label: 'Ambas as equipas marcam', options: [op('btts:Y', 'Sim', win ? 0.61 : 0.47, true), op('btts:N', 'Não', win ? 0.39 : 0.53, false)] },
+        { key: 'cs', label: 'Resultados exatos mais prováveis', options: [op('cs:2-1', '2 - 1', 0.11, win), op('cs:1-1', '1 - 1', 0.1, !win), op('cs:1-0', '1 - 0', 0.09, false)] }
+      ] };
+    }
+    function mk(id, lg, hh, mm, h, a, ph, pa, score, p) {
+      return { id: id, league: lg, startingAt: new Date(dateStr + 'T' + hh + ':' + mm + ':00').toISOString(), state: isPast ? 'FT' : 'NS',
+        finished: isPast, preGame: true, score: isPast ? score : null, home: { name: h, logo: '', form: ph }, away: { name: a, logo: '', form: pa }, prediction: p };
+    }
+    var b1 = { id: 'btts:Y', short: 'Ambas marcam', pickLabel: 'Sim', prob: 0.61, confidence: 'média', hit: hit(true) };
+    var b2 = { id: 'ou:u2.5', short: 'Golos', pickLabel: 'Menos de 2,5', prob: 0.64, confidence: 'média', hit: hit(false) };
     return { date: dateStr, matches: [
-      mk(1, 'Liga Demo A', '17', '00', 'Benguela FC', 'Lobito United', ['V', 'V', 'E', 'V', 'D'], ['D', 'E', 'V', 'D', 'D'],
-         { key: 'btts', label: 'Ambas marcam', pickLabel: 'Sim', prob: 0.61, fairOdd: 1.64, confidence: 'média', hit: hit(true) },
-         { xg: [1.8, 1.2], markets: m1, score: { home: 3, away: 1 } }),
-      mk(2, 'Liga Demo B', '19', '30', 'Huambo SC', 'Namibe City', ['E', 'D', 'E', 'V', 'E'], ['V', 'E', 'D', 'E', 'E'],
-         { key: 'goals', label: 'Golos', pickLabel: 'Menos de 2,5', prob: 0.64, fairOdd: 1.56, confidence: 'média', hit: hit(false) },
-         { xg: [1.0, 0.9], markets: m2, score: { home: 2, away: 2 } })
+      mk(1, 'Liga Demo A', '17', '00', 'Benguela FC', 'Lobito United', ['V', 'V', 'E', 'V', 'D'], ['D', 'E', 'V', 'D', 'D'], { home: 3, away: 1 }, pred(b1, [1.8, 1.2], true)),
+      mk(2, 'Liga Demo B', '19', '30', 'Huambo SC', 'Namibe City', ['E', 'D', 'E', 'V', 'E'], ['V', 'E', 'D', 'E', 'E'], { home: 2, away: 2 }, pred(b2, [1.0, 0.9], false))
     ] };
   }
 
   // ---------- rede ----------
-  var useDemo = DEMO;
   function loadDay(dateStr, isPast) {
-    if (useDemo) return Promise.resolve(demoDay(dateStr, isPast));
+    if (DEMO) return Promise.resolve(demoDay(dateStr, isPast));
     var url = API_BASE ? API_BASE + '/api/previsoes?date=' + dateStr : DATA_BASE + dateStr + '.json';
     return fetch(url, { cache: 'no-store' }).then(function (r) {
       if (r.status === 404) return { date: dateStr, matches: [], missing: true }; // o gerador ainda não criou o ficheiro deste dia
@@ -147,6 +138,13 @@
   }
 
   // ---------- UI ----------
+  // Aceita previsões em formato antigo (markets) e novo (groups)
+  function norm(p) {
+    if (!p) return null;
+    if (p.groups) return p;
+    return { xg: p.xg, best: p.best, groups: [{ key: 'old', label: 'Mercados principais', options: (p.markets || []).map(function (x) {
+      return { id: x.key, label: x.label + ': ' + x.pickLabel, prob: x.prob, hit: x.hit }; }) }] };
+  }
   function crest(t) {
     var ini = esc((t.name || '?').split(/\s+/).map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase());
     var img = t.logo ? '<img alt="" loading="lazy" src="' + esc(t.logo) + '" onerror="this.remove()">' : '';
@@ -159,29 +157,51 @@
   function resMark(hit) {
     if (hit === true) return '<span class="res ok">✔ acertou</span>';
     if (hit === false) return '<span class="res no">✖ falhou</span>';
+    if (hit === 'void') return '<span class="res vd">anulada</span>';
+    return '';
+  }
+  function smallMark(hit) {
+    if (hit === true) return '<span class="res ok">✔</span>';
+    if (hit === false) return '<span class="res no">✖</span>';
+    if (hit === 'void') return '<span class="res vd">=</span>';
     return '';
   }
 
+  function groupsHtml(p) {
+    var n = 0;
+    var html = p.groups.map(function (g) {
+      if (!g.options || !g.options.length) return '';
+      var max = 0;
+      g.options.forEach(function (o) { if (o.prob > max) max = o.prob; });
+      n += g.options.length;
+      return '<div class="grp">' + esc(g.label) + '</div><table>' + g.options.map(function (o) {
+        var w = Math.round(o.prob * 100);
+        return '<tr' + (o.prob === max && g.options.length > 1 ? ' class="hi"' : '') + '><td class="n">' + esc(o.label) + '</td>' +
+          '<td class="pr" style="background:linear-gradient(90deg,#26344d ' + w + '%,transparent ' + w + '%)">' + pct(o.prob) + '</td>' +
+          '<td class="od" title="Odd justa">' + oddOf(o.prob) + '</td><td class="mk">' + smallMark(o.hit) + '</td></tr>';
+      }).join('') + '</table>';
+    }).join('');
+    return { html: html, n: n };
+  }
+
   function card(m) {
-    var p = m.prediction;
+    var p = norm(m.prediction);
     var mid = m.finished && m.score ? m.score.home + ' - ' + m.score.away : 'vs';
-    var tipHtml;
+    var tipHtml = '', rows = '';
     if (!p) {
       tipHtml = '<div class="tip"><span class="lbl">Sem dados suficientes para prever este jogo</span></div>';
     } else {
       var b = p.best;
-      tipHtml = '<div class="tip"><span class="lbl">TIP:</span><span class="pill">' + esc(b.label) + ': ' + esc(b.pickLabel) +
-        '</span><span class="pct">' + pct(b.prob) + '</span><span class="odd" title="Odd justa segundo o modelo">' +
-        b.fairOdd.toFixed(2) + '</span></div>' +
+      var cs = null;
+      p.groups.forEach(function (g) { if (g.key === 'cs' && g.options[0]) cs = g.options[0]; });
+      tipHtml = '<div class="tip"><span class="lbl">TIP:</span><span class="pill">' + esc(b.short || b.label) + ': ' + esc(b.pickLabel) +
+        '</span><span class="pct">' + pct(b.prob) + '</span><span class="odd" title="Odd justa segundo o modelo">' + oddOf(b.prob) + '</span></div>' +
         '<div class="conf"><span>Confiança ' + esc(b.confidence) + '</span><span>Golos esperados ' + p.xg[0] + ' – ' + p.xg[1] + '</span>' +
+        (cs ? '<span>Resultado mais provável ' + esc(cs.label) + ' (' + pct(cs.prob) + ')</span>' : '') +
         (m.preGame ? '<span>registada antes do jogo</span>' : '') + resMark(b.hit) + '</div>';
-    }
-    var rows = '';
-    if (p) {
-      rows = '<details><summary>Ver todos os mercados</summary><table>' + p.markets.map(function (x) {
-        return '<tr><td>' + esc(x.label) + '</td><td><b>' + esc(x.pickLabel) + '</b> ' + resMark(x.hit) +
-               '</td><td>' + pct(x.prob) + ' · ' + x.fairOdd.toFixed(2) + '</td></tr>';
-      }).join('') + '</table>' +
+      var g = groupsHtml(p);
+      rows = '<details><summary>Ver todas as probabilidades (' + g.n + ')</summary>' +
+        '<p class="note">Probabilidade · odd justa (1 ÷ probabilidade). A opção mais provável de cada mercado está a negrito.</p>' + g.html +
         '<div class="chips">Forma ' + esc(m.home.name) + ': ' + chips(m.home.form) + '</div>' +
         '<div class="chips">Forma ' + esc(m.away.name) + ': ' + chips(m.away.form) + '</div></details>';
     }
@@ -198,7 +218,7 @@
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
     var back = [0, -1, -2]; // hoje, amanhã, depois de amanhã
     Promise.all(back.map(function (b) { return loadDay(utcDay(b), false); })).then(function (all) {
-      setBanner(useDemo ? DEMO_MSG : '');
+      setBanner(DEMO ? DEMO_MSG : '');
       var names = ['Hoje', 'Amanhã', 'Depois de amanhã'];
       var html = '';
       all.forEach(function (d, i) {
@@ -220,13 +240,14 @@
     var days = [];
     for (var i = 1; i <= 7; i++) days.push(utcDay(i));
     Promise.all(days.map(function (d) { return loadDay(d, true); })).then(function (all) {
-      setBanner(useDemo ? DEMO_MSG : '');
+      setBanner(DEMO ? DEMO_MSG : '');
       var pre = { t: 0, ok: 0 }, rec = { t: 0, ok: 0 }, html = '';
       all.forEach(function (d, i) {
         d.matches.forEach(function (m) {
-          if (!m.finished || !m.prediction || m.prediction.best.hit == null) return;
+          var p = norm(m.prediction);
+          if (!m.finished || !p || (p.best.hit !== true && p.best.hit !== false)) return;
           var g = m.preGame ? pre : rec;
-          g.t++; if (m.prediction.best.hit) g.ok++;
+          g.t++; if (p.best.hit) g.ok++;
         });
         if (d.matches.length) html += '<div class="day">' + esc(fmtDay(days[i])) + '</div>' + d.matches.map(card).join('');
       });

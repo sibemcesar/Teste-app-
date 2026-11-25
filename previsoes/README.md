@@ -5,7 +5,7 @@ Previsões de futebol que se atualizam sozinhas, sem servidor.
 - `index.html`: o site (separadores Hoje / Anteriores, estilo escuro). Lê os dados de `data/`.
 - `data/AAAA-MM-DD.json`: previsões de cada dia. São geradas e guardadas automaticamente.
 - `scripts/gerar.js`: gera os ficheiros de `data/` com os dados da Sportmonks.
-- `lib/engine.js`: o modelo (Poisson sobre golos recentes). Mercados: 1X2, mais/menos de 2,5, ambas marcam, dupla hipótese.
+- `lib/engine.js`: o modelo (Poisson sobre golos recentes, em duas partes). Calcula cerca de 70 probabilidades por jogo: 1X2, dupla hipótese, empate anula aposta, total de golos (0,5 a 4,5), golos de cada equipa, ambas marcam, vitória sem sofrer, margem de vitória, número exato de golos, par/ímpar, resultados exatos mais prováveis, 1.ª parte, parte com mais golos e HT/FT. Todas saem da mesma distribuição, por isso são coerentes entre si.
 - `lib/day.js`: pede à Sportmonks os jogos do dia e o histórico das equipas.
 - `.github/workflows/previsoes.yml` (na raiz do repositório): corre o gerador de 30 em 30 minutos.
 - `api/previsoes.js`: opcional, só se quiseres usar a Vercel em vez do GitHub.
@@ -39,6 +39,6 @@ Escrevi a integração a partir da documentação da Sportmonks, mas só a teste
 ## Limites do modelo (para seres honesto com os utilizadores)
 
 - É estatística simples: não sabe de lesões, suspensões, motivação, meteorologia nem treinadores.
-- Não prevê HT/FT: exige o resultado ao intervalo e é um mercado muito instável.
+- Os mercados da 1.ª parte e o HT/FT usam uma divisão fixa (45% dos golos na 1.ª parte), não a forma real de cada equipa. São os menos fiáveis.
 - A "odd justa" é 1 / probabilidade do modelo. Só há valor se a casa pagar mais do que isso, e o modelo pode estar errado.
 - Mostra sempre a taxa de acertos real, incluindo as falhas. Não prometas "100% certo".

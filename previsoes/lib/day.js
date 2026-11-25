@@ -54,6 +54,7 @@ async function buildDay(date) {
     const fa = E.formOf(away.id, before(ah));
     const finished = E.isFinished(f);
     const final = finished ? E.goalsFrom(f) : null;
+    const ht = finished ? E.goalsFrom(f, '1ST_HALF') : null;
     const formStr = (rows) => rows.slice(0, 5).map((r) => (r.gf > r.ga ? 'V' : r.gf === r.ga ? 'E' : 'D'));
 
     out.push({
@@ -63,9 +64,10 @@ async function buildDay(date) {
       state: f.state ? f.state.short_name : '',
       finished,
       score: final,
+      ht,
       home: { name: home.name, logo: home.image_path || '', form: formStr(fh) },
       away: { name: away.name, logo: away.image_path || '', form: formStr(fa) },
-      prediction: E.buildPrediction(fh, fa, final),
+      prediction: E.buildPrediction(fh, fa, E.toResult(final, ht)),
     });
   }
 
