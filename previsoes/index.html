@@ -36,6 +36,10 @@
   summary.lgh i{font-style:normal;font-weight:400;color:var(--mut);font-size:12px}
   summary.lgh::after{content:'▾';color:var(--acc);margin-left:8px}
   details.lg:not([open]) > summary.lgh::after{content:'▸'}
+  .srch{margin:0 0 12px}
+  .srch input{width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line);border-radius:12px;color:var(--tx);font:inherit;padding:11px 14px}
+  .srch input:focus{outline:0;border-color:var(--acc)}
+  .found{color:var(--mut);font-size:12px;margin:4px 0 8px}
   summary.btn{display:block;text-align:center;border:1px solid var(--acc);border-radius:10px;padding:10px;margin-top:10px;font-weight:600}
   details[open] summary.btn{background:#26344d}
   .banner{background:#3a2f12;color:var(--warn);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}
@@ -81,6 +85,7 @@
 <div class="wrap">
   <header><h1>Previsões</h1><small id="today"></small></header>
   <nav class="days" id="days" aria-label="Dias"></nav>
+  <div class="srch" id="search"><input id="q" type="search" placeholder="Pesquisar equipa ou liga…" autocomplete="off" aria-label="Pesquisar jogos"></div>
   <div id="banner"></div>
   <div id="view"><div class="empty">A carregar…</div></div>
   <footer>
@@ -258,8 +263,21 @@
     current = back; markBar();
     var date = utcDay(back), past = back > 0;
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
+    $('#search').style.display = past ? 'none' : '';
     loadDay(date, past).then(function (d) {
       if (current !== back) return; // entretanto escolheste outro dia
+      cache = { back: back, d: d };
+      render();
+    }).catch(fail);
+  }
+
+  var cache = null;
+  var plain = function (t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); };
+
+  function render() {
+    if (!cache) return;
+    var back = cache.back, d = cache.d, date = utcDay(back), past = back > 0;
+    {
       setBanner(DEMO ? DEMO_MSG : '');
       var html = '<div class="day">' + esc(fmtDay(date)) + '</div>';
       if (!d.matches.length) {
@@ -267,6 +285,13 @@
           ? (back <= 0 ? 'Ainda não há dados para este dia.<br>Os ficheiros são gerados pelo GitHub Actions. Se acabaste de configurar, corre o workflow em <b>Actions &gt; Atualizar previsões &gt; Run workflow</b> e espera uns minutos.' : 'Não há dados guardados para este dia.')
           : 'Sem jogos neste dia nas ligas disponíveis.') + '</div>';
         $('#view').innerHTML = html; return;
+      }
+      var q = past ? '' : plain($('#q').value);
+      if (q) {
+        var all = d.matches.length;
+        d = { matches: d.matches.filter(function (m) { return plain(m.home.name + ' ' + m.away.name + ' ' + m.league).indexOf(q) >= 0; }) };
+        if (!d.matches.length) { $('#view').innerHTML = html + '<div class="empty" style="padding:22px 10px">Nenhum jogo encontrado para “' + esc($('#q').value.trim()) + '” (' + all + ' jogos neste dia).</div>'; return; }
+        html += '<div class="found">' + d.matches.length + (d.matches.length === 1 ? ' jogo encontrado' : ' jogos encontrados') + '</div>';
       }
       if (past) { // resumo de acertos do dia (só dicas registadas antes do jogo)
         var pre = { t: 0, ok: 0 }, rec = { t: 0, ok: 0 };
@@ -294,7 +319,7 @@
         var ms = byLeague[n].sort(order);
         return '<details class="lg" id="lg' + i + '" open><summary class="lgh"><span>' + esc(n) + '</span><i>' + ms.length + (ms.length === 1 ? ' jogo' : ' jogos') + '</i></summary>' + ms.map(card).join('') + '</details>';
       }).join('');
-    }).catch(fail);
+    }
   }
 
   function fail(e) {
@@ -303,6 +328,7 @@
   }
 
   $('#today').textContent = new Date().toLocaleDateString('pt-PT', { day: 'numeric', month: 'short' });
+  $('#q').addEventListener('input', render);
   buildBar();
   showDay(0);
 })();
