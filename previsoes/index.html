@@ -26,6 +26,16 @@
   .dchip.fut span{color:var(--acc)}
   .dchip.on{background:#26344d;border-color:var(--acc)}
   .dchip.on span,.dchip.on b{color:var(--acc)}
+  .lnav{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 -14px 10px;padding:0 14px}
+  .lnav::-webkit-scrollbar{display:none}
+  .lnav a{flex:0 0 auto;font-size:12px;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 10px;text-decoration:none;white-space:nowrap}
+  .lnav i{font-style:normal;color:var(--acc);margin-left:4px}
+  details.lg{margin:0 0 6px;scroll-margin-top:84px}
+  summary.lgh{display:flex;justify-content:space-between;align-items:center;gap:8px;position:sticky;top:78px;z-index:3;background:var(--bg);
+              color:var(--tx);font-weight:700;font-size:14px;padding:10px 2px;border-bottom:1px solid var(--line);margin-bottom:8px}
+  summary.lgh i{font-style:normal;font-weight:400;color:var(--mut);font-size:12px}
+  summary.lgh::after{content:'▾';color:var(--acc);margin-left:8px}
+  details.lg:not([open]) > summary.lgh::after{content:'▸'}
   summary.btn{display:block;text-align:center;border:1px solid var(--acc);border-radius:10px;padding:10px;margin-top:10px;font-weight:600}
   details[open] summary.btn{background:#26344d}
   .banner{background:#3a2f12;color:var(--warn);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}
@@ -214,8 +224,7 @@
           '<div class="chips">Forma ' + esc(m.away.name) + ': ' + chips(m.away.form) + '</div></details>';
       }
     }
-    return '<div class="card"><div class="top"><span>' + esc(m.league) + '</span><span>' + esc(hhmm(m.startingAt)) +
-      (m.finished ? ' · terminado' : '') + '</span></div>' +
+    return '<div class="card"><div class="top"><span>' + esc(hhmm(m.startingAt)) + '</span><span>' + (m.finished ? 'terminado' : '') + '</span></div>' +
       '<div class="teams"><div class="team">' + crest(m.home) + '<span>' + esc(m.home.name) + '</span></div>' +
       '<div class="mid">' + esc(mid) + '</div>' +
       '<div class="team">' + crest(m.away) + '<span>' + esc(m.away.name) + '</span></div></div>' + tipHtml + rows + '</div>';
@@ -271,10 +280,20 @@
         else if (rec.t) html += '<div class="sum">Calculadas depois dos jogos: <b>' + rec.ok + '/' + rec.t + '</b> (' + Math.round(100 * rec.ok / rec.t) +
           '%)<p>Mostram como o modelo teria ido; não são dicas publicadas antes do jogo.</p></div>';
       }
-      var ms = d.matches.slice().sort(function (a, b) { // por acontecer primeiro, terminados no fim
-        return (a.finished ? 1 : 0) - (b.finished ? 1 : 0) || String(a.startingAt).localeCompare(String(b.startingAt));
+      // agrupa por liga: ligas com jogos por acontecer primeiro, depois por nome; dentro da liga, por acontecer primeiro e por hora
+      var byLeague = {};
+      d.matches.forEach(function (m) { var k = m.league || 'Outras ligas'; (byLeague[k] = byLeague[k] || []).push(m); });
+      var order = function (a, b) { return (a.finished ? 1 : 0) - (b.finished ? 1 : 0) || String(a.startingAt).localeCompare(String(b.startingAt)); };
+      var names = Object.keys(byLeague).sort(function (a, b) {
+        var ua = byLeague[a].some(function (m) { return !m.finished; }), ub = byLeague[b].some(function (m) { return !m.finished; });
+        return (ua ? 0 : 1) - (ub ? 0 : 1) || a.localeCompare(b, 'pt');
       });
-      $('#view').innerHTML = html + ms.map(card).join('');
+      var nav = names.length > 1 ? '<div class="lnav">' + names.map(function (n, i) {
+        return '<a href="#lg' + i + '">' + esc(n) + ' <i>' + byLeague[n].length + '</i></a>'; }).join('') + '</div>' : '';
+      $('#view').innerHTML = html + nav + names.map(function (n, i) {
+        var ms = byLeague[n].sort(order);
+        return '<details class="lg" id="lg' + i + '" open><summary class="lgh"><span>' + esc(n) + '</span><i>' + ms.length + (ms.length === 1 ? ' jogo' : ' jogos') + '</i></summary>' + ms.map(card).join('') + '</details>';
+      }).join('');
     }).catch(fail);
   }
 
