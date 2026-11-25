@@ -11,7 +11,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const pace = () => (process.env.FD_PACE_MS != null ? Number(process.env.FD_PACE_MS) : 6500); // 10 pedidos/minuto
 
 async function fdGet(path) {
-  const token = process.env.FOOTBALLDATA_TOKEN;
+  const token = (process.env.FOOTBALLDATA_TOKEN || '').trim();
   if (!token) throw Object.assign(new Error('FOOTBALLDATA_TOKEN em falta'), { status: 500 });
   for (let attempt = 0; attempt < 3; attempt++) {
     const r = await fetch(BASE + path, { headers: { 'X-Auth-Token': token } });
@@ -21,7 +21,11 @@ async function fdGet(path) {
       await sleep(Math.min(wait, 90) * 1000);
       continue;
     }
-    if (!r.ok) throw Object.assign(new Error('football-data.org respondeu ' + r.status), { status: 502 });
+    if (!r.ok) {
+      let msg = '';
+      try { msg = (await r.text()).slice(0, 160).replace(/\s+/g, ' '); } catch (e) { /* sem corpo */ }
+      throw Object.assign(new Error('football-data.org respondeu ' + r.status + (msg ? ' (' + msg + ')' : '')), { status: 502 });
+    }
     return r.json();
   }
   throw Object.assign(new Error('football-data.org: limite de pedidos'), { status: 429 });
