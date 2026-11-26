@@ -47,7 +47,7 @@ async function buildDay(date, old) {
       ht,
       home: { name: home.name, logo: home.image_path || '', form: formStr(fh) },
       away: { name: away.name, logo: away.image_path || '', form: formStr(fa) },
-      prediction: frozen ? null : E.buildPrediction(fh, fa, E.toResult(final, ht)),
+      prediction: frozen ? null : E.buildPrediction(fh, fa, E.toResult(final, ht), f.league && f.league.name),
     });
   }
 

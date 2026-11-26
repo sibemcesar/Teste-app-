@@ -303,6 +303,27 @@
     return { days: 12, pre: sm, all: sm };
   }
   var perfMode = 'pre';
+  function modelBox(m) {
+    var h = '<div class="pbox"><h3>Aprendizagem do modelo</h3>';
+    if (!m) return h + '<p style="margin:0">Ainda não há informação. O gerador cria-a na próxima execução.</p></div>';
+    var pc = function (x) { return Math.round(x * 100) + '%'; };
+    if (m.status === 'ativo' && m.params) {
+      var P = m.params;
+      h += '<div class="big" style="font-size:18px"><span class="tago">Ativa</span> · versão ' + esc(m.version) + '</div>' +
+        '<p>Aprendeu com ' + m.games + ' jogos. Vantagem de casa ' + P.homeFactor + ' (base 1,08), fora ' + P.awayFactor + ' (base 0,93), ' +
+        'peso da forma recente ' + pc(P.formWeight) + ', golos na 1.ª parte ' + pc(P.half1Share) + ', média de golos por equipa ' + String(P.leagueAvg).replace('.', ',') + '.</p>';
+      if (m.report) h += '<p>Teste em ' + m.report.testGames + ' jogos que o ajuste não viu: previsão melhor em ' + m.report.gainPerGame + ' (log-verosimilhança por jogo; acima de 0 é melhor).</p>';
+      h += '<p>Só vale para jogos novos: as previsões já registadas não mudam.</p>';
+    } else {
+      var pct = Math.min(100, Math.round(100 * m.games / m.minGames));
+      h += '<div class="big" style="font-size:18px"><span class="tagw">À espera de dados</span></div>' +
+        '<div class="pbar" style="margin:10px 0 4px"><b style="width:' + pct + '%;top:0;bottom:0;border-radius:7px"></b></div>' +
+        '<p style="margin:0">' + m.games + ' de ' + m.minGames + ' jogos terminados necessários. ' + esc(m.reason || '') + '</p>' +
+        (m.report ? '<p>Último teste: o ajuste ganhou só ' + m.report.gainPerGame + ' por jogo (erro ±' + m.report.stdError + '), por isso não foi adotado.</p>' : '') +
+        '<p>Enquanto isso o modelo usa os valores por defeito.</p>';
+    }
+    return h + '</div>';
+  }
   function pct1(x) { return Math.round(x * 100) + '%'; }
   function verdict(n, avg, rate) {
     if (n < 30) return '<span class="r">amostra pequena</span>';
@@ -314,7 +335,10 @@
     $('#view').innerHTML = '<div class="empty">A carregar…</div>';
     var get = DEMO ? Promise.resolve(demoStats()) : fetch(DATA_BASE + 'desempenho.json', { cache: 'no-store' }).then(function (r) {
       if (r.status === 404) return null; if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
-    get.then(function (st) {
+    var getM = DEMO ? Promise.resolve({ status: 'a-aprender', games: 62, minGames: 150, reason: 'Poucos jogos terminados para aprender com segurança.', params: null })
+      : fetch(DATA_BASE + 'modelo.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    Promise.all([get, getM]).then(function (both) {
+      var st = both[0], model = both[1];
       if (!perfOn) return;
       if (!st) { $('#view').innerHTML = '<div class="empty">Ainda não há estatísticas. O gerador cria-as quando houver jogos terminados.</div>'; return; }
       var S = st[perfMode];
@@ -322,7 +346,7 @@
       var note = perfMode === 'pre' ? 'Só jogos cuja previsão foi guardada antes do apito: o registo verdadeiro.' : 'Inclui previsões calculadas depois do jogo (só com dados anteriores a ele). Mostram como o modelo teria ido.';
       var html = seg;
       if (!S.games) {
-        $('#view').innerHTML = html + '<div class="empty" style="padding:22px 10px">Ainda não há jogos terminados com previsão registada antes do jogo. Esta página enche-se à medida que os jogos acabam.</div>';
+        $('#view').innerHTML = html + '<div class="empty" style="padding:22px 10px">Ainda não há jogos terminados com previsão registada antes do jogo. Esta página enche-se à medida que os jogos acabam.</div>' + modelBox(model);
       } else {
         var rate = S.best.n ? S.best.hits / S.best.n : 0;
         html += '<div class="pbox"><h3>Dica principal</h3><div class="big">' + S.best.hits + '/' + S.best.n + ' <small style="font-size:14px;color:var(--mut)">(' + pct1(rate) + ')</small></div>' +
@@ -340,7 +364,7 @@
             '<span class="r">' + pct1(g.avgProb) + ' → ' + pct1(rt) + '</span></div>'; }).join('') + '<p>Média de todas as opções do mercado: previsto → real.</p></div>';
         if (S.leagues.length) html += '<div class="pbox"><h3>Por liga (dica principal)</h3>' + S.leagues.map(function (l) {
           return '<div class="prow" style="grid-template-columns:1fr 80px"><span>' + esc(l.league) + '</span><span class="r">' + l.hits + '/' + l.n + ' · ' + pct1(l.hits / l.n) + '</span></div>'; }).join('') + '</div>';
-        $('#view').innerHTML = html;
+        $('#view').innerHTML = html + modelBox(model);
       }
       $('#view').querySelectorAll('.seg button').forEach(function (b) { b.addEventListener('click', function () { perfMode = b.dataset.m; showStats(); }); });
     }).catch(fail);

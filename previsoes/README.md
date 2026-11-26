@@ -50,6 +50,18 @@ Escrevi a integração a partir da documentação da Sportmonks, mas só a teste
 - Que a API devolve `participants`, `scores` e `state`. Se algum nome for diferente, ajusta `goalsFrom` em `lib/engine.js`.
 - Se o workflow falhar, abre o registo da execução em Actions: a mensagem de erro diz o que foi.
 
+## Aprendizagem (fase 2)
+
+`lib/learn.js` ajusta sozinho, a cada execução, os valores que antes eram fixos: vantagem de jogar em casa e fora, peso da forma recente, parte dos golos na 1.ª parte e média de golos (global e por liga). O resultado fica em `data/modelo.json` e o painel "Desempenho" mostra o estado.
+
+Regras de segurança:
+- só aprende com pelo menos 150 jogos terminados (`LEARN_MIN_GAMES` para mudar);
+- cada valor é puxado para o valor por defeito quando há poucos dados e fica dentro de limites;
+- validação: ajusta nos 70% de jogos mais antigos e testa nos 30% mais recentes. Os parâmetros só são adotados se previrem melhor do que os atuais, com ganho maior do que 2 erros-padrão (para não confundir sorte com melhoria);
+- previsões já registadas nunca mudam: os parâmetros novos só valem para jogos novos. Cada previsão guarda `pv` (versão dos parâmetros) e `base` (forma bruta), que servem para o treino seguinte.
+
+Não corrige tudo: só afina médias de golos. Se o modelo for otimista por causa de empates ou de golos que não são independentes, isso não se resolve aqui.
+
 ## Limites do modelo (para seres honesto com os utilizadores)
 
 - É estatística simples: não sabe de lesões, suspensões, motivação, meteorologia nem treinadores.

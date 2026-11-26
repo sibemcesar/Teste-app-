@@ -5,8 +5,20 @@
 // e para dizer se a dica acertou depois do jogo. Sem dependências, testável sem rede.
 
 const FINISHED = new Set(['FT', 'AET', 'FT_PEN']);
-const LEAGUE_AVG_GOALS = 1.35; // média típica de golos por equipa (prior)
-const HALF1_SHARE = 0.45; // fração aproximada dos golos que acontecem na 1.ª parte
+// Parâmetros do modelo. Os valores por defeito são os de partida; o gerador pode aprender melhores
+// (ver lib/learn.js e data/modelo.json) e passá-los com setParams().
+const DEFAULTS = Object.freeze({
+  version: 0,
+  homeFactor: 1.08, // vantagem de jogar em casa
+  awayFactor: 0.93,
+  formWeight: 0.75, // peso da forma recente (o resto vai para a média da liga)
+  half1Share: 0.45, // fração dos golos que acontecem na 1.ª parte
+  leagueAvg: 1.35, // média de golos por equipa
+  leagues: {}, // média própria de algumas ligas: { "Premier League": 1.5 }
+});
+let PARAMS = { ...DEFAULTS };
+const setParams = (p) => { PARAMS = { ...DEFAULTS, ...(p || {}), leagues: { ...((p && p.leagues) || {}) } }; };
+const getParams = () => PARAMS;
 const N = 8; // golos máximos por equipa em cada parte (a cauda além disto é desprezável)
 
 function goalsFrom(fixture, description = 'CURRENT') {
@@ -61,7 +73,7 @@ function pmf(lambda, max) {
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 
 // Golos esperados de cada equipa (ou null se faltarem dados)
-function expectedGoals(formHome, formAway) {
+function expectedGoals(formHome, formAway, league) {
   if (formHome.length < 3 || formAway.length < 3) return null;
   const wavg = (rows, k) => {
     let s = 0, w = 0;
@@ -72,18 +84,19 @@ function expectedGoals(formHome, formAway) {
     });
     return s / w;
   };
-  let lh = ((wavg(formHome, 'gf') + wavg(formAway, 'ga')) / 2) * 1.08; // vantagem de jogar em casa
-  let la = ((wavg(formAway, 'gf') + wavg(formHome, 'ga')) / 2) * 0.93;
+  const bh = (wavg(formHome, 'gf') + wavg(formAway, 'ga')) / 2; // base antes da vantagem de casa
+  const ba = (wavg(formAway, 'gf') + wavg(formHome, 'ga')) / 2;
+  const P = PARAMS, avg = (league && P.leagues[league]) || P.leagueAvg, w = P.formWeight;
   // encolhe para a média: poucas amostras não devem dar previsões extremas
-  lh = clamp(0.75 * lh + 0.25 * LEAGUE_AVG_GOALS, 0.3, 3.5);
-  la = clamp(0.75 * la + 0.25 * LEAGUE_AVG_GOALS, 0.3, 3.5);
-  return { lh, la };
+  const lh = clamp(w * bh * P.homeFactor + (1 - w) * avg, 0.3, 3.5);
+  const la = clamp(w * ba * P.awayFactor + (1 - w) * avg, 0.3, 3.5);
+  return { lh, la, bh, ba };
 }
 
 // Distribuição conjunta: lista de {h, a, h1, a1, p} = golos finais e ao intervalo de cada equipa
-function joint(lh, la) {
-  const A1 = pmf(lh * HALF1_SHARE, N), B1 = pmf(la * HALF1_SHARE, N);
-  const A2 = pmf(lh * (1 - HALF1_SHARE), N), B2 = pmf(la * (1 - HALF1_SHARE), N);
+function joint(lh, la, share = PARAMS.half1Share) {
+  const A1 = pmf(lh * share, N), B1 = pmf(la * share, N);
+  const A2 = pmf(lh * (1 - share), N), B2 = pmf(la * (1 - share), N);
   const J = [];
   let tot = 0;
   for (let h1 = 0; h1 <= N; h1++) {
@@ -238,8 +251,8 @@ function confidence(prob) {
   return prob >= 0.65 ? 'alta' : prob >= 0.55 ? 'média' : 'baixa';
 }
 
-function buildPrediction(formHome, formAway, result) {
-  const xg = expectedGoals(formHome, formAway);
+function buildPrediction(formHome, formAway, result, league) {
+  const xg = expectedGoals(formHome, formAway, league);
   if (!xg) return null;
   const J = joint(xg.lh, xg.la);
 
@@ -275,7 +288,8 @@ function buildPrediction(formHome, formAway, result) {
   best.prob = round3(best.prob);
   best.confidence = confidence(best.prob);
 
-  const pred = { v: 2, xg: [Math.round(xg.lh * 100) / 100, Math.round(xg.la * 100) / 100], groups, best };
+  // base = forma bruta (sem vantagem de casa) e pv = versão dos parâmetros: servem para a aprendizagem (lib/learn.js)
+  const pred = { v: 2, xg: [Math.round(xg.lh * 100) / 100, Math.round(xg.la * 100) / 100], base: [Math.round(xg.bh * 1000) / 1000, Math.round(xg.ba * 1000) / 1000], pv: PARAMS.version || 0, groups, best };
   return rescore(pred, result);
 }
 
@@ -289,6 +303,7 @@ function rescore(pred, result) {
 }
 
 module.exports = {
+  DEFAULTS, setParams, getParams,
   goalsFrom, sides, isFinished, kickoffTs, formOf, expectedGoals, joint,
   evaluate, toResult, buildPrediction, rescore, confidence, GROUPS,
 };

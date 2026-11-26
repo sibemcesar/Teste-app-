@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const E = require('../lib/engine');
 const S = require('../lib/stats');
+const L = require('../lib/learn');
 
 const DATA = path.join(__dirname, '..', 'data');
 const DAY = 86400000;
@@ -43,6 +44,15 @@ async function main() {
   }
   console.log('Fonte de dados:', process.env.STATSAPI_KEY ? 'TheStatsAPI' : process.env.FOOTBALLDATA_TOKEN ? 'football-data.org' : 'Sportmonks');
   const { buildDay } = require('../lib/day');
+  // parâmetros aprendidos (se já houver e tiverem passado a validação)
+  const modelFile = path.join(DATA, 'modelo.json');
+  const prevModel = readJson(modelFile);
+  if (prevModel && prevModel.status === 'ativo' && prevModel.params) {
+    E.setParams({ ...prevModel.params, version: prevModel.version });
+    console.log('Modelo: parâmetros aprendidos v' + prevModel.version + ' (' + prevModel.games + ' jogos)');
+  } else {
+    console.log('Modelo: parâmetros por defeito' + (prevModel ? ' (a aprender: ' + prevModel.games + '/' + prevModel.minGames + ' jogos)' : ''));
+  }
   fs.mkdirSync(DATA, { recursive: true });
   const now = Date.now();
   let ok = 0, falhas = 0;
@@ -79,6 +89,16 @@ async function main() {
       console.log('desempenho atualizado:', stats.all.games, 'jogos analisados');
     }
   } catch (e) { console.error('desempenho: erro', e.message); }
+  // aprendizagem: reajusta o modelo se houver jogos suficientes e o ganho for confirmado em jogos não vistos
+  try {
+    const days = fs.readdirSync(DATA).filter((f) => /^\d{4}-\d\d-\d\d\.json$/.test(f)).map((f) => readJson(path.join(DATA, f))).filter(Boolean);
+    const model = L.learn(days, prevModel);
+    const strip = (m) => JSON.stringify({ ...(m || {}), trainedAt: 0 });
+    if (strip(prevModel) !== strip(model)) {
+      fs.writeFileSync(modelFile, JSON.stringify({ trainedAt: new Date().toISOString(), ...model }) + '\n');
+      console.log('modelo atualizado:', model.status, '-', model.reason);
+    }
+  } catch (e) { console.error('aprendizagem: erro', e.message); }
   if (!ok) process.exit(1); // tudo falhou: o workflow fica vermelho
   if (falhas) console.warn(falhas + ' dia(s) falharam, os outros ficaram atualizados.');
 }
