@@ -9,7 +9,7 @@ global.fetch = async (url, opt) => {
   calls.push(url);
   assert.strictEqual(opt.headers.Authorization, 'Bearer k');
   const u = new URL(url); const q = u.searchParams; let body;
-  if (u.pathname.endsWith('/competitions')) body = { data: [{ id: 'comp_1', name: 'Premier League' }, { id: 'comp_2', name: 'Liga Obscura' }], meta: { total_pages: 1 } };
+  if (u.pathname.endsWith('/competitions')) body = { data: [{ id: 'comp_1', name: 'Premier League', country_code: 'GB', subdivision_code: 'GB-ENG' }, { id: 'comp_2', name: 'Liga Obscura' }], meta: { total_pages: 1 } };
   else if (/\/matches\/mt_f1$/.test(u.pathname)) body = { data: { id: 'mt_f1', score: { half_time_home: 1, half_time_away: 0 } } };
   else if (q.get('team_id')) body = { data: [1, 2, 3, 4, 5, 6].map((i) => mk('mt_h' + q.get('team_id') + i, q.get('team_id'), 'tm_x', 'finished', '2026-11-0' + i + 'T15:00:00.000Z', { home: 2, away: 0, regulation: { home: 2, away: 0 } })) };
   else body = { data: [
@@ -25,7 +25,7 @@ global.fetch = async (url, opt) => {
   const day = await buildDay('2026-11-25');
   assert.strictEqual(day.matches.length, 2, 'filtra ligas fora da lista');
   const [fin, nxt] = day.matches;
-  assert.strictEqual(fin.league, 'Premier League');
+  assert.strictEqual(fin.league, 'Premier League'); assert.strictEqual(fin.leagueCc, 'GB-ENG');
   assert.deepStrictEqual(fin.score, { home: 2, away: 1 });
   assert.deepStrictEqual(fin.ht, { home: 1, away: 0 });
   assert.strictEqual(nxt.finished, false); assert.strictEqual(nxt.score, null);

@@ -182,6 +182,14 @@
     return { xg: p.xg, best: p.best, groups: [{ key: 'old', label: 'Mercados principais', options: (p.markets || []).map(function (x) {
       return { id: x.key, label: x.label + ': ' + x.pickLabel, prob: x.prob, hit: x.hit }; }) }] };
   }
+  // bandeira em emoji a partir do código do país (DE, BR…) ou da subdivisão (GB-ENG, GB-SCT, GB-WLS)
+  function flag(cc) {
+    cc = String(cc || '').toUpperCase();
+    var sub = { 'GB-ENG': 'gbeng', 'GB-SCT': 'gbsct', 'GB-WLS': 'gbwls' }[cc];
+    if (sub) return String.fromCodePoint(0x1F3F4) + sub.split('').map(function (c) { return String.fromCodePoint(0xE0000 + c.charCodeAt(0)); }).join('') + String.fromCodePoint(0xE007F);
+    if (/^[A-Z]{2}$/.test(cc)) return cc.split('').map(function (c) { return String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65); }).join('');
+    return '';
+  }
   function crest(t) {
     var ini = esc((t.name || '?').split(/\s+/).map(function (w) { return w[0]; }).join('').slice(0, 2).toUpperCase());
     var img = t.logo ? '<img alt="" loading="lazy" src="' + esc(t.logo) + '" onerror="this.remove()">' : '';
@@ -406,17 +414,18 @@
       }
       // agrupa por liga: ligas com jogos por acontecer primeiro, depois por nome; dentro da liga, por acontecer primeiro e por hora
       var byLeague = {};
-      d.matches.forEach(function (m) { var k = m.league || 'Outras ligas'; (byLeague[k] = byLeague[k] || []).push(m); });
+      var ccOf = {};
+      d.matches.forEach(function (m) { var k = m.league || 'Outras ligas'; (byLeague[k] = byLeague[k] || []).push(m); if (m.leagueCc && !ccOf[k]) ccOf[k] = m.leagueCc; });
       var order = function (a, b) { return (a.finished ? 1 : 0) - (b.finished ? 1 : 0) || String(a.startingAt).localeCompare(String(b.startingAt)); };
       var names = Object.keys(byLeague).sort(function (a, b) {
         var ua = byLeague[a].some(function (m) { return !m.finished; }), ub = byLeague[b].some(function (m) { return !m.finished; });
         return (ua ? 0 : 1) - (ub ? 0 : 1) || a.localeCompare(b, 'pt');
       });
       var nav = names.length > 1 ? '<div class="lnav">' + names.map(function (n, i) {
-        return '<a href="#lg' + i + '">' + esc(n) + ' <i>' + byLeague[n].length + '</i></a>'; }).join('') + '</div>' : '';
+        return '<a href="#lg' + i + '">' + (flag(ccOf[n]) ? flag(ccOf[n]) + ' ' : '') + esc(n) + ' <i>' + byLeague[n].length + '</i></a>'; }).join('') + '</div>' : '';
       $('#view').innerHTML = html + nav + names.map(function (n, i) {
         var ms = byLeague[n].sort(order);
-        return '<details class="lg" id="lg' + i + '" open><summary class="lgh"><span>' + esc(n) + '</span><i>' + ms.length + (ms.length === 1 ? ' jogo' : ' jogos') + '</i></summary>' + ms.map(card).join('') + '</details>';
+        return '<details class="lg" id="lg' + i + '" open><summary class="lgh"><span>' + (flag(ccOf[n]) ? flag(ccOf[n]) + ' ' : '') + esc(n) + '</span><i>' + ms.length + (ms.length === 1 ? ' jogo' : ' jogos') + '</i></summary>' + ms.map(card).join('') + '</details>';
       }).join('');
     }
   }

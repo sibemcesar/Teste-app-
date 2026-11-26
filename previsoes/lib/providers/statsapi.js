@@ -62,17 +62,18 @@ function toFixture(m, names, ht) {
     id: m.id,
     starting_at: String(m.utc_date || '').replace('T', ' ').replace(/\.\d+Z$|Z$/, ''),
     state: { short_name: finished ? 'FT' : String(m.status || '').toUpperCase() },
-    league: { name: (names && names.get(m.competition_id)) || m.competition_name || '' },
+    league: { name: (names && names.get(m.competition_id)) || m.competition_name || '', cc: ccs.get(m.competition_id) || '' },
     participants: [team(m.home_team, 'home'), team(m.away_team, 'away')],
     scores,
   };
 }
 
 let compsPromise = null;
+const ccs = new Map(); // id da competição → código do país (ex.: DE, GB-ENG)
 function competitions() {
   if (!compsPromise) {
     compsPromise = getAll('/football/competitions', null, 10)
-      .then((rows) => new Map(rows.map((c) => [c.id, c.name])))
+      .then((rows) => { rows.forEach((c) => { const cc = c.subdivision_code || c.country_code; if (cc) ccs.set(c.id, String(cc).toUpperCase()); }); return new Map(rows.map((c) => [c.id, c.name])); })
       .catch((e) => { console.warn('TheStatsAPI: sem nomes de ligas (' + e.message + ')'); return new Map(); });
   }
   return compsPromise;

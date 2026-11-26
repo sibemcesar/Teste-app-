@@ -40,6 +40,7 @@ async function buildDay(date, old) {
     out.push({
       id: f.id,
       league: f.league ? f.league.name : '',
+      leagueCc: (f.league && f.league.cc) || '',
       startingAt: new Date(kick).toISOString(),
       state: f.state ? f.state.short_name : '',
       finished,
