@@ -50,6 +50,10 @@ Escrevi a integração a partir da documentação da Sportmonks, mas só a teste
 - Que a API devolve `participants`, `scores` e `state`. Se algum nome for diferente, ajusta `goalsFrom` em `lib/engine.js`.
 - Se o workflow falhar, abre o registo da execução em Actions: a mensagem de erro diz o que foi.
 
+## Construtor de aposta
+
+Em cada jogo por acontecer há o botão "Construtor de aposta". Escolhes seleções de vários mercados e o site calcula a probabilidade de acontecerem todas no mesmo jogo, com a mesma distribuição de golos do modelo (o site carrega `lib/engine.js` e recria-a a partir do xG guardado). Por isso respeita as ligações entre mercados, ao contrário de multiplicar probabilidades. Também sugere as combinações mais prováveis com 2 e 3 seleções, sem redundâncias. A odd é "justa", não a da casa.
+
 ## Aprendizagem (fase 2)
 
 `lib/learn.js` ajusta sozinho, a cada execução, os valores que antes eram fixos: vantagem de jogar em casa e fora, peso da forma recente, parte dos golos na 1.ª parte e média de golos (global e por liga). O resultado fica em `data/modelo.json` e o painel "Desempenho" mostra o estado.

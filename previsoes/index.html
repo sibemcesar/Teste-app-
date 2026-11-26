@@ -57,6 +57,19 @@
   .srch input{width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line);border-radius:12px;color:var(--tx);font:inherit;padding:11px 14px}
   .srch input:focus{outline:0;border-color:var(--acc)}
   .found{color:var(--mut);font-size:12px;margin:4px 0 8px}
+  details.bb{margin-top:8px}
+  .bbh{font-size:12px;color:var(--mut);margin:10px 0 6px}
+  .bbs{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:12px}
+  .bbs .t{flex:1}.bbs b{color:var(--acc);white-space:nowrap}
+  .bbs button,.bbc button,.bbx{font:600 12px inherit;border-radius:999px;border:1px solid var(--acc);background:transparent;color:var(--acc);padding:5px 10px;cursor:pointer}
+  .bbc{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .bbc button{border-color:var(--line);color:var(--tx);background:var(--card)}
+  .bbc button.on{background:#26344d;border-color:var(--acc);color:var(--acc)}
+  .bbc button i{font-style:normal;color:var(--mut);margin-left:4px}
+  .bbsel{width:100%;box-sizing:border-box;background:var(--card);border:1px solid var(--line);border-radius:10px;color:var(--tx);font:inherit;padding:9px 10px}
+  .bbr{border:1px solid var(--acc);border-radius:12px;padding:12px;margin-top:10px;background:#1d2a41}
+  .bbr .big{color:var(--acc)}
+  .bbr p{margin:6px 0 0;color:var(--mut);font-size:12px}
   summary.btn{display:block;text-align:center;border:1px solid var(--acc);border-radius:10px;padding:10px;margin-top:10px;font-weight:600}
   details[open] summary.btn{background:#26344d}
   .banner{background:#3a2f12;color:var(--warn);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13px}
@@ -113,6 +126,7 @@
   </footer>
 </div>
 
+<script src="lib/engine.js"></script>
 <script>
 (function () {
   'use strict';
@@ -229,6 +243,75 @@
     return { html: html, n: n };
   }
 
+  // ---------- construtor de aposta ----------
+  var byId = {}, jointCache = {}, bb = {};
+  function bbShell(m, p) {
+    if (!window.Engine || p.v !== 2) return '';
+    byId[m.id] = { m: m, p: p };
+    return '<details class="bb" data-mid="' + esc(m.id) + '"><summary class="btn">Construtor de aposta</summary><div class="bbbody"></div></details>';
+  }
+  function bbState(mid) { return bb[mid] || (bb[mid] = { sel: [], grp: '1x2' }); }
+  function bbJoint(mid) {
+    if (!jointCache[mid]) { var p = byId[mid].p; jointCache[mid] = window.Engine.joint(p.xg[0], p.xg[1], p.sh || 0.45); }
+    return jointCache[mid];
+  }
+  function optInfo(p, id) {
+    for (var i = 0; i < p.groups.length; i++) for (var j = 0; j < p.groups[i].options.length; j++) {
+      var o = p.groups[i].options[j]; if (o.id === id) return { label: p.groups[i].label + ': ' + o.label, prob: o.prob };
+    }
+    return { label: id, prob: null };
+  }
+  var BB_MAX = 6;
+  function bbRender(mid) {
+    var box = document.querySelector('details.bb[data-mid="' + CSS.escape(String(mid)) + '"] .bbbody'); if (!box || !byId[mid]) return;
+    var p = byId[mid].p, st = bbState(mid), J = bbJoint(mid), E = window.Engine, h = '';
+    if (!st.sug) st.sug = { 2: E.comboSuggest(J, 2, 3), 3: E.comboSuggest(J, 3, 3) };
+    [2, 3].forEach(function (n) {
+      if (!st.sug[n].length) return;
+      h += '<div class="bbh">Combinações mais prováveis com ' + n + ' seleções</div>' + st.sug[n].map(function (c, i) {
+        return '<div class="bbs"><span class="t">' + c.labels.map(esc).join(' + ') + '</span><b>' + pct(c.prob) + ' · ' + oddOf(c.prob) + '</b>' +
+          '<button data-act="use" data-n="' + n + '" data-i="' + i + '">Usar</button></div>'; }).join('');
+    });
+    h += '<div class="bbh">Monta a tua combinação (até ' + BB_MAX + ' seleções)</div><select class="bbsel" data-act="grp">' +
+      p.groups.filter(function (g) { return g.key !== 'cs' && g.key !== 'dnb' && g.key !== 'old'; }).map(function (g) {
+        return '<option value="' + esc(g.key) + '"' + (g.key === st.grp ? ' selected' : '') + '>' + esc(g.label) + '</option>'; }).join('') + '</select>';
+    var grp = p.groups.filter(function (g) { return g.key === st.grp; })[0] || p.groups[0];
+    h += '<div class="bbc">' + grp.options.map(function (o) {
+      return '<button data-act="tog" data-id="' + esc(o.id) + '" class="' + (st.sel.indexOf(o.id) >= 0 ? 'on' : '') + '">' + esc(o.label) + '<i>' + pct(o.prob) + '</i></button>'; }).join('') + '</div>';
+    if (st.sel.length) {
+      h += '<div class="bbh">Seleções escolhidas</div><div class="bbc">' + st.sel.map(function (id) {
+        return '<button data-act="rm" data-id="' + esc(id) + '" class="on">' + esc(optInfo(p, id).label) + ' ✕</button>'; }).join('') + '</div>';
+    }
+    if (st.sel.length < 2) {
+      h += '<div class="bbr"><p style="margin:0">Escolhe 2 ou mais seleções, de um ou de vários mercados, para ver a probabilidade de acontecerem todas no mesmo jogo.</p></div>';
+    } else {
+      var c = E.comboProb(J, st.sel), indep = st.sel.reduce(function (a, id) { var i = optInfo(p, id); return a * (i.prob == null ? 1 : i.prob); }, 1);
+      h += '<div class="bbr">' + (c < 0.0005
+        ? '<div class="big">≈ 0%</div><p>Combinação impossível ou quase impossível (há seleções que se excluem).</p>'
+        : '<div class="big">' + pct(c) + ' <small style="font-size:13px;color:var(--mut)">odd justa ' + oddOf(c) + '</small></div>' +
+          '<p>Se fossem independentes daria ' + pct(indep) + '. A diferença vem de os mercados estarem ligados entre si.</p>') +
+        '<p>Calculado a partir da distribuição de golos do modelo. Não são odds da casa: só há valor se a casa pagar mais do que a odd justa.</p></div>';
+    }
+    box.innerHTML = h;
+  }
+  function bbMid(el) { var d = el.closest('details.bb'); return d && d.dataset.mid; }
+  document.addEventListener('toggle', function (e) {
+    var d = e.target; if (d && d.classList && d.classList.contains('bb') && d.open) bbRender(d.dataset.mid);
+  }, true);
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-act]'); if (!b || !b.closest('details.bb')) return;
+    var mid = bbMid(b), st = bbState(mid), act = b.dataset.act;
+    if (act === 'use') st.sel = st.sug[b.dataset.n][b.dataset.i].ids.slice();
+    else if (act === 'tog') { var k = st.sel.indexOf(b.dataset.id); if (k >= 0) st.sel.splice(k, 1); else if (st.sel.length < BB_MAX) st.sel.push(b.dataset.id); }
+    else if (act === 'rm') st.sel = st.sel.filter(function (x) { return x !== b.dataset.id; });
+    else return;
+    bbRender(mid);
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t.dataset || t.dataset.act !== 'grp') return;
+    var mid = bbMid(t); bbState(mid).grp = t.value; bbRender(mid);
+  });
+
   function card(m) {
     var p = norm(m.prediction);
     var mid = m.finished && m.score ? m.score.home + ' - ' + m.score.away : 'vs';
@@ -251,7 +334,7 @@
         rows = '<details><summary class="btn">Ver todas as probabilidades (' + g.n + ')</summary>' +
           '<p class="note">Probabilidade · odd justa (1 ÷ probabilidade). A opção mais provável de cada mercado está a negrito.</p>' + g.html +
           '<div class="chips">Forma ' + esc(m.home.name) + ': ' + chips(m.home.form) + '</div>' +
-          '<div class="chips">Forma ' + esc(m.away.name) + ': ' + chips(m.away.form) + '</div></details>';
+          '<div class="chips">Forma ' + esc(m.away.name) + ': ' + chips(m.away.form) + '</div></details>' + bbShell(m, p);
       }
     }
     return '<div class="card"><div class="top"><span>' + esc(hhmm(m.startingAt)) + '</span><span>' + (m.finished ? 'terminado' : '') + '</span></div>' +

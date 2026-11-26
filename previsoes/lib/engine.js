@@ -289,7 +289,7 @@ function buildPrediction(formHome, formAway, result, league) {
   best.confidence = confidence(best.prob);
 
   // base = forma bruta (sem vantagem de casa) e pv = versão dos parâmetros: servem para a aprendizagem (lib/learn.js)
-  const pred = { v: 2, xg: [Math.round(xg.lh * 100) / 100, Math.round(xg.la * 100) / 100], base: [Math.round(xg.bh * 1000) / 1000, Math.round(xg.ba * 1000) / 1000], pv: PARAMS.version || 0, groups, best };
+  const pred = { v: 2, xg: [Math.round(xg.lh * 100) / 100, Math.round(xg.la * 100) / 100], base: [Math.round(xg.bh * 1000) / 1000, Math.round(xg.ba * 1000) / 1000], pv: PARAMS.version || 0, sh: PARAMS.half1Share, groups, best };
   return rescore(pred, result);
 }
 
@@ -302,8 +302,63 @@ function rescore(pred, result) {
   return { ...pred, groups, best: { ...pred.best, hit: evaluate(pred.best.id, result) } };
 }
 
-module.exports = {
+// ---------- construtor de aposta ----------
+// Probabilidade de TODAS as seleções acontecerem no mesmo jogo, a partir da distribuição conjunta.
+// Respeita as ligações entre mercados (ex.: "mais de 2,5" e "ambas marcam" andam juntos), ao contrário
+// de multiplicar probabilidades soltas. Seleções anuladas ('void') contam como não acertadas.
+function comboProb(J, ids) {
+  const ops = ids.map(optionFor);
+  if (!ops.length || ops.some((x) => !x)) return null;
+  let yes = 0;
+  for (const r of J) if (ops.every((op) => op.test(r) === true)) yes += r.p;
+  return yes;
+}
+
+// Melhores combinações de `size` seleções, no máximo uma por mercado (1X2 e dupla hipótese contam como um só), entre os mercados mais usados.
+// Ignora combinações redundantes (uma seleção já implica a outra) e as quase certas (> maxProb).
+function comboSuggest(J, size, top = 3, maxProb = 0.9) {
+  const keys = ['1x2', 'dc', 'ou', 'btts'];
+  const cands = [];
+  for (const g of GROUPS) {
+    if (!keys.includes(g.key)) continue;
+    for (const op of g.options) {
+      if (g.key === 'ou' && !/:(o|u)(1\.5|2\.5|3\.5)$/.test(op.id)) continue;
+      const mask = new Uint8Array(J.length);
+      let pr = 0;
+      J.forEach((r, i) => { if (op.test(r) === true) { mask[i] = 1; pr += r.p; } });
+      cands.push({ g: g.key === 'dc' ? '1x2' : g.key, id: op.id, label: `${g.short || g.label}: ${op.label}`, mask, pr });
+    }
+  }
+  const out = [];
+  const rec = (start, chosen) => {
+    if (chosen.length === size) {
+      let c = 0;
+      for (let i = 0; i < J.length; i++) { if (chosen.every((x) => x.mask[i])) c += J[i].p; }
+      const minLeg = Math.min(...chosen.map((x) => x.pr));
+      if (c > maxProb || c >= 0.985 * minLeg || c <= 0) return;
+      // redundante se, em algum par, uma seleção já implica a outra (ex.: "mais de 2,5" implica "mais de 1,5")
+      for (let a = 0; a < chosen.length; a++) for (let b = a + 1; b < chosen.length; b++) {
+        let both = 0;
+        for (let i = 0; i < J.length; i++) if (chosen[a].mask[i] && chosen[b].mask[i]) both += J[i].p;
+        if (both >= 0.985 * Math.min(chosen[a].pr, chosen[b].pr)) return;
+      }
+      out.push({ ids: chosen.map((x) => x.id), labels: chosen.map((x) => x.label), prob: c, indep: chosen.reduce((a, x) => a * x.pr, 1) });
+      return;
+    }
+    for (let i = start; i < cands.length; i++) {
+      if (chosen.some((x) => x.g === cands[i].g)) continue;
+      rec(i + 1, [...chosen, cands[i]]);
+    }
+  };
+  rec(0, []);
+  return out.sort((a, b) => b.prob - a.prob).slice(0, top);
+}
+
+const API = {
   DEFAULTS, setParams, getParams,
   goalsFrom, sides, isFinished, kickoffTs, formOf, expectedGoals, joint,
-  evaluate, toResult, buildPrediction, rescore, confidence, GROUPS,
+  evaluate, toResult, buildPrediction, rescore, confidence, GROUPS, comboProb, comboSuggest,
 };
+// Node (gerador e testes) e navegador (o site usa o mesmo motor no construtor de aposta)
+if (typeof module !== 'undefined' && module.exports) module.exports = API;
+else if (typeof window !== 'undefined') window.Engine = API;

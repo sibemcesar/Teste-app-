@@ -140,3 +140,29 @@ test('toResult e rescore: mantêm as probabilidades e preenchem os acertos', () 
 });
 
 console.log('\n' + n + ' testes passaram');
+
+// ---------- construtor de aposta ----------
+{
+  const x = E.expectedGoals(strong, weak);
+  const J = E.joint(x.lh, x.la);
+  const near = (a, b, t = 1e-9) => Math.abs(a - b) < t;
+  const single = (id) => E.comboProb(J, [id]);
+  assert.ok(near(single('1x2:1') + single('1x2:X') + single('1x2:2'), 1), 'o 1X2 soma 1');
+  assert.ok(near(E.comboProb(J, ['1x2:1', '1x2:2']), 0), 'seleções incompatíveis = 0');
+  assert.ok(near(E.comboProb(J, ['1x2:1', 'dc:1X']), single('1x2:1')), 'vitória implica casa ou empate');
+  const both = E.comboProb(J, ['ou:o2.5', 'btts:Y']);
+  assert.ok(both > single('ou:o2.5') * single('btts:Y'), 'mais de 2,5 e ambas marcam andam juntos (correlação)');
+  assert.ok(both <= Math.min(single('ou:o2.5'), single('btts:Y')) + 1e-12);
+  assert.strictEqual(E.comboProb(J, ['nao:existe']), null);
+  const sug = E.comboSuggest(J, 2, 3);
+  assert.ok(sug.length > 0 && sug.every((s) => s.ids.length === 2 && s.prob <= 0.9));
+  assert.ok(sug.every((s, i) => i === 0 || sug[i - 1].prob >= s.prob), 'ordenadas por probabilidade');
+  assert.ok(sug.every((s) => new Set(s.ids.map((i) => i.split(':')[0])).size === 2), 'no máximo uma seleção por mercado');
+  assert.ok(near(sug[0].prob, E.comboProb(J, sug[0].ids)), 'sugestão consistente com o cálculo direto');
+  const sug3 = E.comboSuggest(J, 3, 20);
+  assert.ok(sug3.every((s) => !(s.ids.some((i) => i.startsWith('1x2')) && s.ids.some((i) => i.startsWith('dc')))), 'só uma seleção de resultado por combinação');
+  assert.ok(sug3.every((s) => !(s.ids.includes('ou:o1.5') && s.ids.includes('ou:o2.5'))), 'sem redundâncias');
+  const pr = E.buildPrediction(strong, weak, null, 'L');
+  assert.ok(typeof pr.sh === 'number' && pr.sh > 0, 'a previsão guarda a divisão por partes');
+  console.log('ok - construtor de aposta: correlação, incompatíveis, implicações, sugestões');
+}
