@@ -262,25 +262,27 @@
     return { label: id, prob: null };
   }
   var BB_MAX = 6;
+  function nm(m, t) { return String(t).replace('Golos da equipa da casa', 'Golos ' + m.home.name).replace('Golos da equipa visitante', 'Golos ' + m.away.name); }
   function bbRender(mid) {
     var box = document.querySelector('details.bb[data-mid="' + CSS.escape(String(mid)) + '"] .bbbody'); if (!box || !byId[mid]) return;
-    var p = byId[mid].p, st = bbState(mid), J = bbJoint(mid), E = window.Engine, h = '';
-    if (!st.sug) st.sug = { 2: E.comboSuggest(J, 2, 3), 3: E.comboSuggest(J, 3, 3) };
-    [2, 3].forEach(function (n) {
-      if (!st.sug[n].length) return;
-      h += '<div class="bbh">Combinações mais prováveis com ' + n + ' seleções</div>' + st.sug[n].map(function (c, i) {
-        return '<div class="bbs"><span class="t">' + c.labels.map(esc).join(' + ') + '</span><b>' + pct(c.prob) + ' · ' + oddOf(c.prob) + '</b>' +
-          '<button data-act="use" data-n="' + n + '" data-i="' + i + '">Usar</button></div>'; }).join('');
+    var p = byId[mid].p, m = byId[mid].m, st = bbState(mid), J = bbJoint(mid), E = window.Engine, h = '';
+    if (!st.sug) st.sug = E.comboSuggest(J);
+    if (st.sug.length) h += '<div class="bbh" style="margin-top:2px">Sugestões: seleções que se reforçam entre si, por nível de risco</div>';
+    var lastBand = '';
+    st.sug.forEach(function (c, i) {
+      if (c.band !== lastBand) { h += '<div class="bbh">' + esc(c.bandLabel) + '</div>'; lastBand = c.band; }
+      h += '<div class="bbs"><span class="t">' + c.labels.map(function (l) { return esc(nm(m, l)); }).join(' + ') + '</span><b>' + pct(c.prob) + ' · ' + oddOf(c.prob) + '</b>' +
+        '<button data-act="use" data-i="' + i + '">Usar</button></div>';
     });
     h += '<div class="bbh">Monta a tua combinação (até ' + BB_MAX + ' seleções)</div><select class="bbsel" data-act="grp">' +
       p.groups.filter(function (g) { return g.key !== 'cs' && g.key !== 'dnb' && g.key !== 'old'; }).map(function (g) {
-        return '<option value="' + esc(g.key) + '"' + (g.key === st.grp ? ' selected' : '') + '>' + esc(g.label) + '</option>'; }).join('') + '</select>';
+        return '<option value="' + esc(g.key) + '"' + (g.key === st.grp ? ' selected' : '') + '>' + esc(nm(m, g.label)) + '</option>'; }).join('') + '</select>';
     var grp = p.groups.filter(function (g) { return g.key === st.grp; })[0] || p.groups[0];
     h += '<div class="bbc">' + grp.options.map(function (o) {
       return '<button data-act="tog" data-id="' + esc(o.id) + '" class="' + (st.sel.indexOf(o.id) >= 0 ? 'on' : '') + '">' + esc(o.label) + '<i>' + pct(o.prob) + '</i></button>'; }).join('') + '</div>';
     if (st.sel.length) {
       h += '<div class="bbh">Seleções escolhidas</div><div class="bbc">' + st.sel.map(function (id) {
-        return '<button data-act="rm" data-id="' + esc(id) + '" class="on">' + esc(optInfo(p, id).label) + ' ✕</button>'; }).join('') + '</div>';
+        return '<button data-act="rm" data-id="' + esc(id) + '" class="on">' + esc(nm(m, optInfo(p, id).label)) + ' ✕</button>'; }).join('') + '</div>';
     }
     if (st.sel.length < 2) {
       h += '<div class="bbr"><p style="margin:0">Escolhe 2 ou mais seleções, de um ou de vários mercados, para ver a probabilidade de acontecerem todas no mesmo jogo.</p></div>';
@@ -301,7 +303,7 @@
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('[data-act]'); if (!b || !b.closest('details.bb')) return;
     var mid = bbMid(b), st = bbState(mid), act = b.dataset.act;
-    if (act === 'use') st.sel = st.sug[b.dataset.n][b.dataset.i].ids.slice();
+    if (act === 'use') st.sel = st.sug[b.dataset.i].ids.slice();
     else if (act === 'tog') { var k = st.sel.indexOf(b.dataset.id); if (k >= 0) st.sel.splice(k, 1); else if (st.sel.length < BB_MAX) st.sel.push(b.dataset.id); }
     else if (act === 'rm') st.sel = st.sel.filter(function (x) { return x !== b.dataset.id; });
     else return;

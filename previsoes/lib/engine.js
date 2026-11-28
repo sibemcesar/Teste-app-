@@ -339,44 +339,71 @@ function comboProb(J, ids) {
   return yes;
 }
 
-// Melhores combinações de `size` seleções, no máximo uma por mercado (1X2 e dupla hipótese contam como um só), entre os mercados mais usados.
-// Ignora combinações redundantes (uma seleção já implica a outra) e as quase certas (> maxProb).
-function comboSuggest(J, size, top = 3, maxProb = 0.9) {
-  const keys = ['1x2', 'dc', 'ou', 'btts'];
+// Sugestões de combinações, por nível de risco. Usa quase todos os mercados (resultado, total de golos, ambas marcam,
+// golos de cada equipa, vitória sem sofrer, margem, 1.ª parte, parte com mais golos), no máximo uma seleção por
+// "família" (1X2, dupla hipótese, margem e vitória sem sofrer contam como uma só). Só entram combinações em que as
+// seleções se reforçam (probabilidade conjunta acima do produto das separadas) e sem redundâncias (uma seleção que
+// já implica a outra). Em cada nível escolhe as que mais se reforçam, evitando repetir sempre as mesmas seleções.
+const FAMILY = { '1x2': 'res', dc: 'res', margin: 'res', wtn: 'res', ou: 'ou', btts: 'btts', th: 'th', ta: 'ta', h1x2: 'h1', hou: 'hou', half: 'half' };
+const LINES = { ou: /:(o|u)(1\.5|2\.5|3\.5)$/, th: /:(o|u)(0\.5|1\.5)$/, ta: /:(o|u)(0\.5|1\.5)$/, hou: /:(o|u)(0\.5|1\.5)$/ };
+const BANDS = [
+  { key: 'safe', label: 'Mais segura', lo: 0.5, hi: 0.8 },
+  { key: 'mid', label: 'Equilibrada', lo: 0.28, hi: 0.5 },
+  { key: 'bold', label: 'Mais arriscada', lo: 0.12, hi: 0.28 },
+];
+function comboSuggest(J0, perBand = 2) {
+  const J = J0.filter((r) => r.p > 1e-7); // ignora resultados de probabilidade desprezável (mais rápido)
   const cands = [];
   for (const g of GROUPS) {
-    if (!keys.includes(g.key)) continue;
+    const fam = FAMILY[g.key];
+    if (!fam) continue;
     for (const op of g.options) {
-      if (g.key === 'ou' && !/:(o|u)(1\.5|2\.5|3\.5)$/.test(op.id)) continue;
+      if (LINES[g.key] && !LINES[g.key].test(op.id)) continue;
       const mask = new Uint8Array(J.length);
       let pr = 0;
-      J.forEach((r, i) => { if (op.test(r) === true) { mask[i] = 1; pr += r.p; } });
-      cands.push({ g: g.key === 'dc' ? '1x2' : g.key, id: op.id, label: `${g.short || g.label}: ${op.label}`, mask, pr });
+      for (let i = 0; i < J.length; i++) if (op.test(J[i]) === true) { mask[i] = 1; pr += J[i].p; }
+      if (pr < 0.25 || pr > 0.85) continue; // só seleções realmente incertas (nem quase impossíveis nem quase certas)
+      cands.push({ fam, id: op.id, label: `${g.short || g.label}: ${op.label}`, mask, pr });
     }
   }
-  const out = [];
-  const rec = (start, chosen) => {
-    if (chosen.length === size) {
-      let c = 0;
-      for (let i = 0; i < J.length; i++) { if (chosen.every((x) => x.mask[i])) c += J[i].p; }
-      const minLeg = Math.min(...chosen.map((x) => x.pr));
-      if (c > maxProb || c >= 0.985 * minLeg || c <= 0) return;
-      // redundante se, em algum par, uma seleção já implica a outra (ex.: "mais de 2,5" implica "mais de 1,5")
-      for (let a = 0; a < chosen.length; a++) for (let b = a + 1; b < chosen.length; b++) {
-        let both = 0;
-        for (let i = 0; i < J.length; i++) if (chosen[a].mask[i] && chosen[b].mask[i]) both += J[i].p;
-        if (both >= 0.985 * Math.min(chosen[a].pr, chosen[b].pr)) return;
-      }
-      out.push({ ids: chosen.map((x) => x.id), labels: chosen.map((x) => x.label), prob: c, indep: chosen.reduce((a, x) => a * x.pr, 1) });
-      return;
+  const all = [];
+  const consider = (chosen) => {
+    let c = 0;
+    for (let i = 0; i < J.length; i++) { let ok = 1; for (const x of chosen) if (!x.mask[i]) { ok = 0; break; } if (ok) c += J[i].p; }
+    if (c < 0.12 || c > 0.8) return;
+    const minLeg = Math.min(...chosen.map((x) => x.pr));
+    if (c >= 0.985 * minLeg) return; // uma seleção já implica as outras
+    const indep = chosen.reduce((a, x) => a * x.pr, 1);
+    if (c < indep * 1.05) return; // só seleções que se reforçam
+    for (let a = 0; a < chosen.length; a++) for (let b = a + 1; b < chosen.length; b++) {
+      let both = 0;
+      for (let i = 0; i < J.length; i++) if (chosen[a].mask[i] && chosen[b].mask[i]) both += J[i].p;
+      if (both >= 0.985 * Math.min(chosen[a].pr, chosen[b].pr)) return; // par redundante
     }
-    for (let i = start; i < cands.length; i++) {
-      if (chosen.some((x) => x.g === cands[i].g)) continue;
-      rec(i + 1, [...chosen, cands[i]]);
-    }
+    all.push({ ids: chosen.map((x) => x.id), labels: chosen.map((x) => x.label), prob: c, indep, lift: c / indep });
   };
-  rec(0, []);
-  return out.sort((a, b) => b.prob - a.prob).slice(0, top);
+  for (let i = 0; i < cands.length; i++) for (let j = i + 1; j < cands.length; j++) {
+    if (cands[i].fam === cands[j].fam) continue;
+    consider([cands[i], cands[j]]);
+    for (let k = j + 1; k < cands.length; k++) {
+      if (cands[k].fam === cands[i].fam || cands[k].fam === cands[j].fam) continue;
+      consider([cands[i], cands[j], cands[k]]);
+    }
+  }
+  all.sort((a, b) => b.lift - a.lift || b.prob - a.prob); // as que mais se reforçam primeiro
+  const used = new Map(), out = [];
+  for (const band of BANDS) {
+    let n = 0;
+    for (const c of all) {
+      if (n >= perBand) break;
+      if (c.prob < band.lo || c.prob >= band.hi) continue;
+      if (c.ids.some((id) => (used.get(id) || 0) >= 2)) continue; // variedade: nenhuma seleção em mais de 2 sugestões
+      c.ids.forEach((id) => used.set(id, (used.get(id) || 0) + 1));
+      out.push({ band: band.key, bandLabel: band.label, ...c });
+      n++;
+    }
+  }
+  return out;
 }
 
 const API = {

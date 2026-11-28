@@ -60,7 +60,7 @@ Previsões de jogos que **ainda não começaram** são recalculadas quando o mod
 
 ## Construtor de aposta
 
-Em cada jogo por acontecer há o botão "Construtor de aposta". Escolhes seleções de vários mercados e o site calcula a probabilidade de acontecerem todas no mesmo jogo, com a mesma distribuição de golos do modelo (o site carrega `lib/engine.js` e recria-a a partir do xG guardado). Por isso respeita as ligações entre mercados, ao contrário de multiplicar probabilidades. Também sugere as combinações mais prováveis com 2 e 3 seleções, sem redundâncias. A odd é "justa", não a da casa.
+Em cada jogo por acontecer há o botão "Construtor de aposta". Escolhes seleções de vários mercados e o site calcula a probabilidade de acontecerem todas no mesmo jogo, com a mesma distribuição de golos do modelo (o site carrega `lib/engine.js` e recria-a a partir do xG guardado). Por isso respeita as ligações entre mercados, ao contrário de multiplicar probabilidades. Também sugere combinações por nível de risco (mais segura, equilibrada, mais arriscada), com quase todos os mercados (golos de cada equipa, vitória sem sofrer, margem, 1.ª parte…): só seleções que se reforçam entre si e sem redundâncias. A odd é "justa", não a da casa.
 
 ## Aprendizagem (fase 2)
 
