@@ -5,9 +5,22 @@
 //  - o intervalo vem do detalhe do jogo, só pedido para jogos terminados que ainda não temos guardados;
 //  - o histórico de cada equipa é a mesma lista filtrada por team_id (em cache durante a execução).
 const BASE = 'https://api.thestatsapi.com/api';
-// Filtro por nome de competição (substring, sem maiúsculas). STATS_COMPETITIONS substitui; "*" = todas.
-// Um item pode levar o país à frente (ES:laliga = só se a competição for de Espanha). A comparação ignora espaços e acentos.
-const DEFAULT_COMPS = 'Premier League,Championship,Bundesliga,Serie A,Serie B,La Liga,ES:Primera Division,Ligue 1,Eredivisie,Primeira Liga,Champions League,National League';
+// Filtro de competições. Cada item: [=][PAÍS:]nome. "=" = nome exato; sem "=" basta conter o texto. O país (ES, GB-ENG…)
+// evita apanhar ligas homónimas de outros países. A comparação ignora espaços, acentos e maiúsculas.
+// STATS_COMPETITIONS (separado por vírgulas) substitui esta lista; "*" = todas.
+const DEFAULT_COMPS = [
+  // Inglaterra, Espanha, Alemanha, Itália, França, Países Baixos, Portugal
+  '=GB-ENG:Premier League', '=GB-ENG:Championship', '=GB-ENG:League One', '=GB-ENG:National League', '=GB-ENG:FA Cup', '=GB-ENG:EFL Cup',
+  '=ES:LaLiga', '=ES:Copa del Rey', '=DE:Bundesliga', '=DE:2. Bundesliga', '=DE:DFB Pokal', '=IT:Serie A', '=IT:Serie B', '=IT:Coppa Italia',
+  '=FR:Ligue 1', '=NL:Eredivisie', '=PT:Liga Portugal Betclic', '=PT:Taça de Portugal',
+  // outras ligas muito seguidas
+  '=BR:Brasileirão Série A', '=BE:Pro League', '=TR:Trendyol Süper Lig', '=GB-SCT:Scottish Premiership', '=SA:Saudi Pro League', '=US:MLS', 'MX:Liga MX', '=AR:Liga Profesional de Fútbol',
+  // clubes: continentais
+  '=UEFA Champions League', '=UEFA Europa League', '=UEFA Conference League', '=UEFA Super Cup', '=CONMEBOL Libertadores', '=CONMEBOL Sudamericana',
+  '=CAF Champions League', '=CAF Confederations Cup', '=Club World Championship', '=FIFA Intercontinental Cup',
+  // seleções
+  '=FIFA World Cup', 'World Championship Qual.', '=Africa Cup of Nations', '=Africa Cup of Nations Qual.', '=EURO', '=EURO, Qualification', '=Copa América', '=UEFA Nations League', '=International Friendly Games',
+];
 const squash = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '');
 const DAY = 86400000;
 let quota = null;
@@ -82,9 +95,7 @@ function competitions() {
   if (!compsPromise) {
     compsPromise = getAll('/football/competitions', null, 10)
       .then((rows) => { rows.forEach((c) => { const cc = c.subdivision_code || c.country_code; if (cc) ccs.set(c.id, String(cc).toUpperCase()); }); 
-        const es = rows.filter((c) => /^ES/.test(String(c.subdivision_code || c.country_code || ''))).map((c) => c.name);
-        console.log('TheStatsAPI: ' + rows.length + ' competições. Espanha: ' + (es.join(' | ') || '(nenhuma com país ES)'));
-        console.log('COMPETIÇÕES: ' + rows.map((c) => (c.subdivision_code || c.country_code || '--') + ':' + c.name).join(' ; '));
+        console.log('TheStatsAPI: ' + rows.length + ' competições na API');
         return new Map(rows.map((c) => [c.id, c.name])); })
       .catch((e) => { console.warn('TheStatsAPI: sem nomes de ligas (' + e.message + ')'); return new Map(); });
   }
@@ -92,14 +103,16 @@ function competitions() {
 }
 
 function allowed(names, id) {
-  const cfg = (process.env.STATS_COMPETITIONS || DEFAULT_COMPS).split(',').map((s) => s.trim()).filter(Boolean);
+  const cfg = process.env.STATS_COMPETITIONS ? process.env.STATS_COMPETITIONS.split(',').map((x) => x.trim()).filter(Boolean) : DEFAULT_COMPS;
   if (cfg.includes('*') || !names.size) return true; // sem nomes não dá para filtrar
-  const name = squash(names.get(id)), cc = ccs.get(id) || '';
-  return cfg.some((c) => {
-    if (c.toLowerCase() === String(id).toLowerCase()) return true;
-    const m = /^([A-Za-z]{2}(?:-[A-Za-z]{3})?):(.+)$/.exec(c); // país:nome
-    if (m) return cc.toUpperCase().startsWith(m[1].toUpperCase()) && name.includes(squash(m[2]));
-    return !!name && name.includes(squash(c));
+  const name = squash(names.get(id)), cc = (ccs.get(id) || '').toUpperCase();
+  return cfg.some((raw) => {
+    if (raw.toLowerCase() === String(id).toLowerCase()) return true;
+    const exact = raw.startsWith('=');
+    const m = /^([A-Za-z]{2}(?:-[A-Za-z]{3})?):(.+)$/.exec(exact ? raw.slice(1) : raw);
+    const want = squash(m ? m[2] : exact ? raw.slice(1) : raw);
+    if (m && !cc.startsWith(m[1].toUpperCase())) return false;
+    return exact ? name === want : !!name && name.includes(want);
   });
 }
 
@@ -108,7 +121,7 @@ async function listFixtures(date, opts = {}) {
   const old = opts.old || new Map();
   const names = await competitions();
   const rows = await getAll('/football/matches', { date_from: date, date_to: date, sort: 'utc_date' });
-  const max = Number(process.env.STATS_MAX_MATCHES) || 40;
+  const max = Number(process.env.STATS_MAX_MATCHES) || 100;
   const keep = rows.filter((m) => m.home_team && m.away_team && allowed(names, m.competition_id)).slice(0, max);
   const out = [];
   for (const m of keep) {
