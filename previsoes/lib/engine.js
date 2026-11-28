@@ -19,7 +19,7 @@ const DEFAULTS = Object.freeze({
   leagues: {}, // média própria de algumas ligas: { "Premier League": 1.5 }
 });
 // REV muda quando o modelo muda de forma: previsões de jogos que ainda não começaram são recalculadas.
-const REV = 3;
+const REV = 4;
 let PARAMS = { ...DEFAULTS };
 const setParams = (p) => { PARAMS = { ...DEFAULTS, ...(p || {}), leagues: { ...((p && p.leagues) || {}) } }; };
 const getParams = () => PARAMS;
@@ -61,7 +61,7 @@ function formOf(teamId, fixtures, limit = 6) {
       if (!home || !away || !g) return null;
       const isHome = home.id === teamId;
       if (!isHome && away.id !== teamId) return null;
-      return { ts: kickoffTs(f), gf: isHome ? g.home : g.away, ga: isHome ? g.away : g.home };
+      return { id: f.id, home: isHome, ts: kickoffTs(f), gf: isHome ? g.home : g.away, ga: isHome ? g.away : g.home };
     })
     .filter(Boolean)
     .sort((x, y) => y.ts - x.ts)
@@ -227,6 +227,66 @@ for (const c1 of ['1', 'X', '2']) {
 }
 add('htft', 'Intervalo / final (HT/FT)', htft);
 
+
+// ---------- escanteios e cartões ----------
+// Três "espaços" de probabilidade independentes: G = golos {h,a,h1,a1}, C = escanteios {x,y}, K = cartões {x,y}.
+// Distribuição binomial negativa (variam mais do que a Poisson). x = equipa da casa, y = visitante.
+const COUNT = {
+  C: { avg: 5.0, disp: 1.35, homeF: 1.06, awayF: 0.94, max: 30 }, // escanteios por equipa
+  K: { avg: 2.0, disp: 1.2, homeF: 0.97, awayF: 1.03, max: 16 }, // cartões (amarelos + vermelhos) por equipa
+};
+const COUNT_GROUPS = [];
+function countGroup(space, key, label, lines, total) {
+  const options = [];
+  for (const l of lines) {
+    options.push(o(`${key}:o${l}`, `Mais de ${fmt(l)}`, (f) => total(f) > l, { space }));
+    options.push(o(`${key}:u${l}`, `Menos de ${fmt(l)}`, (f) => total(f) < l, { space }));
+  }
+  COUNT_GROUPS.push({ key, label, options, space });
+}
+function moreGroup(space, key, label, what) {
+  COUNT_GROUPS.push({ key, label, space, options: [
+    o(`${key}:1`, `Casa com mais ${what}`, (f) => f.x > f.y, { space }),
+    o(`${key}:X`, 'Igual', (f) => f.x === f.y, { space }),
+    o(`${key}:2`, `Fora com mais ${what}`, (f) => f.x < f.y, { space }),
+  ] });
+}
+countGroup('C', 'ck', 'Total de escanteios', [7.5, 8.5, 9.5, 10.5, 11.5, 12.5], (f) => f.x + f.y);
+countGroup('C', 'cth', 'Escanteios da casa', [3.5, 4.5, 5.5, 6.5], (f) => f.x);
+countGroup('C', 'cta', 'Escanteios do visitante', [3.5, 4.5, 5.5, 6.5], (f) => f.y);
+moreGroup('C', 'c1', 'Quem tem mais escanteios', 'escanteios');
+countGroup('K', 'kt', 'Total de cartões', [2.5, 3.5, 4.5, 5.5, 6.5], (f) => f.x + f.y);
+countGroup('K', 'kth', 'Cartões da casa', [0.5, 1.5, 2.5], (f) => f.x);
+countGroup('K', 'kta', 'Cartões do visitante', [0.5, 1.5, 2.5], (f) => f.y);
+moreGroup('K', 'k1', 'Quem leva mais cartões', 'cartões');
+
+function wavgRows(rows, k) {
+  let s = 0, w = 0;
+  rows.forEach((r, i) => { const wt = Math.pow(0.85, i); s += r[k] * wt; w += wt; });
+  return s / w;
+}
+// rows = [{ f, a }] (a favor da equipa / contra), mais recente primeiro. Devolve as médias esperadas de cada equipa.
+function expectedCount(rowsH, rowsA, space) {
+  if (!rowsH || !rowsA || rowsH.length < 3 || rowsA.length < 3) return null;
+  const C = COUNT[space], w = 0.75;
+  const bh = (wavgRows(rowsH, 'f') + wavgRows(rowsA, 'a')) / 2;
+  const ba = (wavgRows(rowsA, 'f') + wavgRows(rowsH, 'a')) / 2;
+  return { x: clamp(w * bh * C.homeF + (1 - w) * C.avg, 0.2, C.max / 2), y: clamp(w * ba * C.awayF + (1 - w) * C.avg, 0.2, C.max / 2) };
+}
+function nbPmf(mean, disp, max) {
+  if (disp <= 1.001) return pmf(mean, max);
+  const r = mean / (disp - 1), p = 1 / disp, out = [Math.pow(p, r)];
+  for (let k = 0; k < max; k++) out.push((out[k] * (k + r) * (1 - p)) / (k + 1));
+  return out;
+}
+function countJoint(lx, ly, space) {
+  const C = COUNT[space], A = nbPmf(lx, C.disp, C.max), B = nbPmf(ly, C.disp, C.max), J = [];
+  let tot = 0;
+  for (let x = 0; x <= C.max; x++) for (let y = 0; y <= C.max; y++) { const p = A[x] * B[y]; J.push({ x, y, p }); tot += p; }
+  for (const r of J) r.p /= tot;
+  return J;
+}
+
 // Opções com id dinâmico (resultado exato "cs:2-1")
 function optionFor(id) {
   const found = BYID.get(id);
@@ -238,21 +298,29 @@ function optionFor(id) {
   }
   return null;
 }
-const BYID = new Map(GROUPS.flatMap((g) => g.options.map((op) => [op.id, op])));
+const BYID = new Map([...GROUPS, ...COUNT_GROUPS].flatMap((g) => g.options.map((op) => [op.id, op])));
 
 // Compara uma opção com o resultado {h, a, h1, a1}. Devolve true/false, 'void' ou null (sem dados).
 function evaluate(id, result) {
   if (!result) return null;
   const op = optionFor(id);
   if (!op) return null;
+  if (op.space) { // escanteios / cartões: precisam das estatísticas do jogo
+    const v = op.space === 'C' ? result.c : result.k;
+    return v ? op.test(v) : null;
+  }
   if (op.ht && (result.h1 == null || result.a1 == null)) return null;
   return op.test(result);
 }
 
 // {home, away} + {home, away} do intervalo  ->  {h, a, h1, a1}
-function toResult(score, ht) {
+// extra (opcional) = { c: [casa, fora] escanteios, k: [casa, fora] cartões }
+function toResult(score, ht, extra) {
   if (!score) return null;
-  return { h: score.home, a: score.away, h1: ht ? ht.home : null, a1: ht ? ht.away : null };
+  const pair = (v) => (Array.isArray(v) && v.length === 2 ? { x: v[0], y: v[1] } : null);
+  const r = { h: score.home, a: score.away, h1: ht ? ht.home : null, a1: ht ? ht.away : null };
+  if (extra && (extra.c || extra.k)) { r.c = pair(extra.c); r.k = pair(extra.k); }
+  return r;
 }
 
 function probOf(J, op) {
@@ -272,7 +340,8 @@ function confidence(prob) {
   return prob >= 0.65 ? 'alta' : prob >= 0.55 ? 'média' : 'baixa';
 }
 
-function buildPrediction(formHome, formAway, result, league, xs) {
+// cs (opcional) = { C: { h: [{f,a}], a: [{f,a}] }, K: {...} }: escanteios e cartões recentes de cada equipa
+function buildPrediction(formHome, formAway, result, league, xs, cs) {
   const xg = expectedGoals(formHome, formAway, league, xs);
   if (!xg) return null;
   const J = joint(xg.lh, xg.la);
@@ -296,6 +365,18 @@ function buildPrediction(formHome, formAway, result, league, xs) {
     options: topScores.map(([k, p]) => ({ id: 'cs:' + k, label: k.replace('-', ' - '), prob: round3(p) })),
   };
   groups.splice(groups.findIndex((g) => g.key === 'tg'), 0, csGroup);
+  // escanteios e cartões (só se houver estatísticas suficientes das duas equipas)
+  const counts = {};
+  for (const sp of ['C', 'K']) {
+    const e = cs && cs[sp] && expectedCount(cs[sp].h, cs[sp].a, sp);
+    if (!e) continue;
+    const Jc = countJoint(e.x, e.y, sp);
+    counts[sp] = [Math.round(e.x * 100) / 100, Math.round(e.y * 100) / 100];
+    for (const g of COUNT_GROUPS) {
+      if (g.space !== sp) continue;
+      groups.push({ key: g.key, label: g.label, options: g.options.map((op) => ({ id: op.id, label: op.label, prob: round3(probOf(Jc, op)) })) });
+    }
+  }
 
   // dica principal: a opção mais provável entre os mercados "principais"
   let best = null;
@@ -315,6 +396,8 @@ function buildPrediction(formHome, formAway, result, league, xs) {
     const r2 = (x) => Math.round(x * 100) / 100;
     pred.st = { h: [r2(xs.h.f), r2(xs.h.a)], a: [r2(xs.a.f), r2(xs.a.a)], w: r2(xg.xw) };
   }
+  if (counts.C) pred.cx = counts.C;
+  if (counts.K) pred.kx = counts.K;
   return rescore(pred, result);
 }
 
@@ -329,58 +412,81 @@ function rescore(pred, result) {
 
 // ---------- construtor de aposta ----------
 // Probabilidade de TODAS as seleções acontecerem no mesmo jogo, a partir da distribuição conjunta.
-// Respeita as ligações entre mercados (ex.: "mais de 2,5" e "ambas marcam" andam juntos), ao contrário
-// de multiplicar probabilidades soltas. Seleções anuladas ('void') contam como não acertadas.
-function comboProb(J, ids) {
+// Dentro dos golos respeita as ligações entre mercados (ex.: "mais de 2,5" e "ambas marcam" andam juntos), ao contrário
+// de multiplicar probabilidades soltas. Golos, escanteios e cartões são tratados como independentes entre si.
+// X = { C: distribuição dos escanteios, K: distribuição dos cartões } (opcional). Seleções anuladas ('void') contam como não acertadas.
+function comboProb(J, ids, X) {
   const ops = ids.map(optionFor);
   if (!ops.length || ops.some((x) => !x)) return null;
-  let yes = 0;
-  for (const r of J) if (ops.every((op) => op.test(r) === true)) yes += r.p;
-  return yes;
+  const by = { G: [], C: [], K: [] };
+  ops.forEach((op) => by[op.space || 'G'].push(op));
+  let prob = 1;
+  for (const sp of ['G', 'C', 'K']) {
+    if (!by[sp].length) continue;
+    const JJ = sp === 'G' ? J : X && X[sp];
+    if (!JJ) return null;
+    let yes = 0;
+    for (const r of JJ) if (by[sp].every((op) => op.test(r) === true)) yes += r.p;
+    prob *= yes;
+  }
+  return prob;
 }
 
 // Sugestões de combinações, por nível de risco. Usa quase todos os mercados (resultado, total de golos, ambas marcam,
-// golos de cada equipa, vitória sem sofrer, margem, 1.ª parte, parte com mais golos), no máximo uma seleção por
-// "família" (1X2, dupla hipótese, margem e vitória sem sofrer contam como uma só). Só entram combinações em que as
-// seleções se reforçam (probabilidade conjunta acima do produto das separadas) e sem redundâncias (uma seleção que
-// já implica a outra). Em cada nível escolhe as que mais se reforçam, evitando repetir sempre as mesmas seleções.
-const FAMILY = { '1x2': 'res', dc: 'res', margin: 'res', wtn: 'res', ou: 'ou', btts: 'btts', th: 'th', ta: 'ta', h1x2: 'h1', hou: 'hou', half: 'half' };
-const LINES = { ou: /:(o|u)(1\.5|2\.5|3\.5)$/, th: /:(o|u)(0\.5|1\.5)$/, ta: /:(o|u)(0\.5|1\.5)$/, hou: /:(o|u)(0\.5|1\.5)$/ };
+// golos de cada equipa, vitória sem sofrer, margem, 1.ª parte, parte com mais golos, escanteios, cartões), no máximo uma
+// seleção por "família" (1X2, dupla hipótese, margem e vitória sem sofrer contam como uma só). Só entram combinações em
+// que as seleções se reforçam (probabilidade conjunta acima do produto das separadas) e sem redundâncias (uma seleção
+// que já implica a outra). Em cada nível escolhe as que mais se reforçam, evitando repetir sempre as mesmas seleções.
+const FAMILY = { '1x2': 'res', dc: 'res', margin: 'res', wtn: 'res', ou: 'ou', btts: 'btts', th: 'th', ta: 'ta', h1x2: 'h1', hou: 'hou', half: 'half',
+  ck: 'ck', cth: 'cth', cta: 'cta', c1: 'c1', kt: 'kt', kth: 'kth', kta: 'kta', k1: 'k1' };
+const LINES = { ou: /:(o|u)(1\.5|2\.5|3\.5)$/, th: /:(o|u)(0\.5|1\.5)$/, ta: /:(o|u)(0\.5|1\.5)$/, hou: /:(o|u)(0\.5|1\.5)$/,
+  ck: /:(o|u)(8\.5|9\.5|10\.5)$/, cth: /:(o|u)(3\.5|4\.5|5\.5)$/, cta: /:(o|u)(3\.5|4\.5|5\.5)$/, kt: /:(o|u)(3\.5|4\.5)$/, kth: /:(o|u)(0\.5|1\.5)$/, kta: /:(o|u)(0\.5|1\.5)$/ };
 const BANDS = [
   { key: 'safe', label: 'Mais segura', lo: 0.5, hi: 0.8 },
   { key: 'mid', label: 'Equilibrada', lo: 0.28, hi: 0.5 },
   { key: 'bold', label: 'Mais arriscada', lo: 0.12, hi: 0.28 },
 ];
-function comboSuggest(J0, perBand = 2) {
-  const J = J0.filter((r) => r.p > 1e-7); // ignora resultados de probabilidade desprezável (mais rápido)
+function comboSuggest(J0, perBand = 2, X) {
+  const SP = { G: J0.filter((r) => r.p > 1e-7) }; // ignora resultados de probabilidade desprezável (mais rápido)
+  if (X && X.C) SP.C = X.C.filter((r) => r.p > 1e-7);
+  if (X && X.K) SP.K = X.K.filter((r) => r.p > 1e-7);
   const cands = [];
-  for (const g of GROUPS) {
-    const fam = FAMILY[g.key];
-    if (!fam) continue;
+  for (const g of [...GROUPS, ...COUNT_GROUPS]) {
+    const fam = FAMILY[g.key], sp = g.space || 'G', JJ = SP[sp];
+    if (!fam || !JJ) continue;
     for (const op of g.options) {
       if (LINES[g.key] && !LINES[g.key].test(op.id)) continue;
-      const mask = new Uint8Array(J.length);
+      const mask = new Uint8Array(JJ.length);
       let pr = 0;
-      for (let i = 0; i < J.length; i++) if (op.test(J[i]) === true) { mask[i] = 1; pr += J[i].p; }
+      for (let i = 0; i < JJ.length; i++) if (op.test(JJ[i]) === true) { mask[i] = 1; pr += JJ[i].p; }
       if (pr < 0.25 || pr > 0.85) continue; // só seleções realmente incertas (nem quase impossíveis nem quase certas)
-      cands.push({ fam, id: op.id, label: `${g.short || g.label}: ${op.label}`, mask, pr });
+      cands.push({ fam, sp, id: op.id, label: `${g.short || g.label}: ${op.label}`, mask, pr });
     }
   }
+  // probabilidade conjunta dentro de um espaço
+  const conj = (xs, sp) => {
+    const JJ = SP[sp];
+    let c = 0;
+    for (let i = 0; i < JJ.length; i++) { let ok = 1; for (const x of xs) if (!x.mask[i]) { ok = 0; break; } if (ok) c += JJ[i].p; }
+    return c;
+  };
   const all = [];
   const consider = (chosen) => {
-    let c = 0;
-    for (let i = 0; i < J.length; i++) { let ok = 1; for (const x of chosen) if (!x.mask[i]) { ok = 0; break; } if (ok) c += J[i].p; }
+    const sps = [...new Set(chosen.map((x) => x.sp))];
+    let c = 1;
+    for (const sp of sps) c *= conj(chosen.filter((x) => x.sp === sp), sp);
     if (c < 0.12 || c > 0.8) return;
-    const minLeg = Math.min(...chosen.map((x) => x.pr));
-    if (c >= 0.985 * minLeg) return; // uma seleção já implica as outras
+    if (c >= 0.985 * Math.min(...chosen.map((x) => x.pr))) return; // uma seleção já implica as outras
     const indep = chosen.reduce((a, x) => a * x.pr, 1);
     if (c < indep * 1.05) return; // só seleções que se reforçam
     for (let a = 0; a < chosen.length; a++) for (let b = a + 1; b < chosen.length; b++) {
+      if (chosen[a].sp !== chosen[b].sp) continue; // espaços diferentes são independentes
+      const JJ = SP[chosen[a].sp];
       let both = 0;
-      for (let i = 0; i < J.length; i++) if (chosen[a].mask[i] && chosen[b].mask[i]) both += J[i].p;
+      for (let i = 0; i < JJ.length; i++) if (chosen[a].mask[i] && chosen[b].mask[i]) both += JJ[i].p;
       if (both >= 0.985 * Math.min(chosen[a].pr, chosen[b].pr)) return; // par redundante
     }
-    all.push({ ids: chosen.map((x) => x.id), labels: chosen.map((x) => x.label), prob: c, indep, lift: c / indep });
+    all.push({ ids: chosen.map((x) => x.id), labels: chosen.map((x) => x.label), prob: c, indep, lift: c / indep, onlyCounts: chosen.every((x) => x.sp !== 'G') });
   };
   for (let i = 0; i < cands.length; i++) for (let j = i + 1; j < cands.length; j++) {
     if (cands[i].fam === cands[j].fam) continue;
@@ -403,13 +509,23 @@ function comboSuggest(J0, perBand = 2) {
       n++;
     }
   }
+  // grupo à parte: só escanteios e cartões
+  let n = 0;
+  for (const c of all) {
+    if (n >= perBand) break;
+    if (!c.onlyCounts || c.ids.length !== 2 || c.prob < 0.2 || c.prob >= 0.7) continue;
+    if (c.ids.some((id) => (used.get(id) || 0) >= 2)) continue;
+    c.ids.forEach((id) => used.set(id, (used.get(id) || 0) + 1));
+    out.push({ band: 'cnt', bandLabel: 'Escanteios e cartões', ...c });
+    n++;
+  }
   return out;
 }
 
 const API = {
   DEFAULTS, REV, setParams, getParams,
   goalsFrom, sides, isFinished, kickoffTs, formOf, expectedGoals, joint,
-  evaluate, toResult, buildPrediction, rescore, confidence, GROUPS, comboProb, comboSuggest,
+  evaluate, toResult, buildPrediction, rescore, confidence, GROUPS, COUNT_GROUPS, countJoint, comboProb, comboSuggest,
 };
 // Node (gerador e testes) e navegador (o site usa o mesmo motor no construtor de aposta)
 if (typeof module !== 'undefined' && module.exports) module.exports = API;

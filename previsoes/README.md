@@ -58,6 +58,12 @@ O modelo exagerava "ambas marcam". A aprendizagem mede a diferença entre o prev
 
 Previsões de jogos que **ainda não começaram** são recalculadas quando o modelo muda (`REV` em `lib/engine.js`), mas ficam sempre congeladas a partir do apito.
 
+## Escanteios e cartões
+
+Com a TheStatsAPI, cada jogo por acontecer ganha mercados de **escanteios** (total, de cada equipa, quem tem mais) e de **cartões** (amarelos + vermelhos: total, de cada equipa, quem leva mais). O modelo usa os últimos jogos de cada equipa (precisa de pelo menos 3 com estatísticas) e uma distribuição binomial negativa, que varia mais do que a Poisson. Depois do jogo, os acertos são avaliados com os valores reais.
+
+As estatísticas de cada jogo terminado custam 1 pedido e ficam em cache permanente em `data/stats-jogos.json`; por isso o gasto de pedidos é alto só nas primeiras execuções (`STATS_BUDGET`, 400 por execução) e depois baixo. O registo da execução mostra a quota mensal restante. Escanteios e cartões são tratados como independentes dos golos no construtor de aposta, o que é uma aproximação.
+
 ## Construtor de aposta
 
 Em cada jogo por acontecer há o botão "Construtor de aposta". Escolhes seleções de vários mercados e o site calcula a probabilidade de acontecerem todas no mesmo jogo, com a mesma distribuição de golos do modelo (o site carrega `lib/engine.js` e recria-a a partir do xG guardado). Por isso respeita as ligações entre mercados, ao contrário de multiplicar probabilidades. Também sugere combinações por nível de risco (mais segura, equilibrada, mais arriscada), com quase todos os mercados (golos de cada equipa, vitória sem sofrer, margem, 1.ª parte…): só seleções que se reforçam entre si e sem redundâncias. A odd é "justa", não a da casa.

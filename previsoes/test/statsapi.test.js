@@ -11,6 +11,7 @@ global.fetch = async (url, opt) => {
   const u = new URL(url); const q = u.searchParams; let body;
   if (u.pathname.endsWith('/competitions')) body = { data: [{ id: 'comp_1', name: 'Premier League', country_code: 'GB', subdivision_code: 'GB-ENG' }, { id: 'comp_2', name: 'Liga Obscura' }], meta: { total_pages: 1 } };
   else if (/\/teams\/[^/]+\/stats$/.test(u.pathname)) body = { data: { team_id: 'x', season_id: q.get('season_id'), xg_matches: 10, expected_goals_for: 20, expected_goals_against: 12 } };
+  else if (/\/matches\/[^/]+\/stats$/.test(u.pathname)) body = { data: { overview: { corner_kicks: { all: { home: 6, away: 4 } }, yellow_cards: { all: { home: 2, away: 1 } }, red_cards: { all: { home: 0, away: 1 } } } } };
   else if (/\/matches\/mt_f1$/.test(u.pathname)) body = { data: { id: 'mt_f1', score: { half_time_home: 1, half_time_away: 0 } } };
   else if (q.get('team_id')) body = { data: [1, 2, 3, 4, 5, 6].map((i) => mk('mt_h' + q.get('team_id') + i, q.get('team_id'), 'tm_x', 'finished', '2026-11-0' + i + 'T15:00:00.000Z', { home: 2, away: 0, regulation: { home: 2, away: 0 } })) };
   else body = { data: [
@@ -33,14 +34,17 @@ global.fetch = async (url, opt) => {
   assert.ok(nxt.prediction && nxt.prediction.v === 2 && nxt.home.form.length === 5);
   assert.ok(nxt.prediction.st && nxt.prediction.st.h[0] === 2 && nxt.prediction.st.h[1] === 1.2, 'usa o xG da época: ' + JSON.stringify(nxt.prediction.st));
   assert.strictEqual(fin.prediction.st, undefined, 'jogos terminados não usam xG da época');
-  console.log('ok - dia completo: liga, resultado, intervalo, previsão com xG');
+  assert.deepStrictEqual(fin.extra, { c: [6, 4], k: [2, 2] }, 'escanteios e cartões do jogo terminado: ' + JSON.stringify(fin.extra));
+  assert.ok(nxt.prediction.cx && nxt.prediction.kx && nxt.prediction.cn === 1, 'jogo por acontecer com escanteios e cartões');
+  assert.ok(nxt.prediction.groups.some((g) => g.key === 'ck'));
+  console.log('ok - dia completo: liga, resultado, intervalo, previsão com xG, escanteios e cartões');
 
   // 2.ª execução com o dia já guardado: sem detalhe nem histórico
   calls.length = 0;
   const day2 = await buildDay('2026-11-25', JSON.parse(JSON.stringify(day)));
   assert.ok(!calls.some((c) => /mt_f1$/.test(c)), 'não repete o detalhe do jogo terminado');
   assert.ok(!calls.some((c) => /team_id/.test(c)), 'não repete o histórico de jogos congelados');
-  assert.ok(!calls.some((c) => /\/stats/.test(c)), 'nem o xG');
+  assert.ok(!calls.some((c) => /\/stats/.test(c) && /teams/.test(c)), 'nem o xG');
   assert.deepStrictEqual(day2.matches[0].ht, { home: 1, away: 0 });
   console.log('ok - segunda execução poupa pedidos');
   console.log('2 testes passaram');

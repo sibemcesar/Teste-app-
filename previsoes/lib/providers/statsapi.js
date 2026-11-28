@@ -8,6 +8,7 @@ const BASE = 'https://api.thestatsapi.com/api';
 // Filtro por nome de competição (substring, sem maiúsculas). STATS_COMPETITIONS substitui; "*" = todas.
 const DEFAULT_COMPS = 'Premier League,Championship,Bundesliga,Serie A,Serie B,La Liga,Ligue 1,Eredivisie,Primeira Liga,Champions League,National League';
 const DAY = 86400000;
+let quota = null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function get(path, params) {
@@ -24,9 +25,13 @@ async function get(path, params) {
       await sleep(Math.min(wait, 90) * 1000);
       continue;
     }
+    try { // quota mensal (para o registo da execução)
+      const h = r.headers && r.headers.get ? (n) => r.headers.get(n) : () => null;
+      if (h('x-monthly-quota-remaining') != null) quota = { remaining: Number(h('x-monthly-quota-remaining')), limit: Number(h('x-monthly-quota-limit')) };
+    } catch (e) { /* sem cabeçalhos */ }
     if (!r.ok) {
       let msg = ''; try { msg = (await r.text()).slice(0, 160).replace(/\s+/g, ' '); } catch (e) { /* */ }
-      throw Object.assign(new Error('TheStatsAPI respondeu ' + r.status + (msg ? ' (' + msg + ')' : '')), { status: 502 });
+      throw Object.assign(new Error('TheStatsAPI respondeu ' + r.status + (msg ? ' (' + msg + ')' : '')), { status: 502, http: r.status });
     }
     return r.json();
   }
@@ -149,4 +154,42 @@ async function teamXg(teamId, seasonId) {
   }
 }
 
-module.exports = { name: 'statsapi', listFixtures, history, toFixture, teamXg, loadXgCache, dumpXgCache };
+// Estatísticas de um jogo terminado: escanteios e cartões (amarelos + vermelhos), por equipa. Um pedido por jogo, em cache
+// permanente (um jogo terminado não muda), também entre execuções (data/stats-jogos.json).
+// Devolve { c: [casa, fora], k: [casa, fora] }, null (sem estatísticas) ou undefined (ainda desconhecido: orçamento esgotado).
+const NONE_TTL = 3 * 86400000; // "sem estatísticas" volta a ser tentado ao fim de 3 dias (às vezes chegam depois)
+const msCache = new Map();
+let msDirty = false;
+let msBudget = Number(process.env.STATS_BUDGET) || 400; // pedidos de estatísticas por execução
+const loadStatsCache = (obj) => { for (const [k, v] of Object.entries(obj || {})) msCache.set(k, v); };
+const dumpStatsCache = () => {
+  if (!msDirty) return null;
+  const keep = Date.now() - 60 * 86400000;
+  return Object.fromEntries([...msCache].filter(([, v]) => v.t >= keep));
+};
+const statsBudgetLeft = () => msBudget;
+async function matchStats(id) {
+  if (!id) return null;
+  const c = msCache.get(id);
+  if (c && (!c.none || Date.now() - c.t < NONE_TTL)) return c.none ? null : c;
+  if (msBudget <= 0) return undefined;
+  msBudget--;
+  try {
+    const j = await get('/football/matches/' + id + '/stats');
+    const ov = ((j && j.data) || j || {}).overview || {};
+    const pair = (k) => { const a = ov[k] && ov[k].all; return a && a.home != null && a.away != null ? [Number(a.home), Number(a.away)] : null; };
+    const cor = pair('corner_kicks'), y = pair('yellow_cards'), r = pair('red_cards');
+    const k = y ? [y[0] + (r ? r[0] : 0), y[1] + (r ? r[1] : 0)] : null;
+    const v = cor || k ? { t: Date.now(), c: cor, k } : { t: Date.now(), none: true };
+    msCache.set(id, v); msDirty = true;
+    return v.none ? null : v;
+  } catch (e) {
+    if (e.status === 429) throw e;
+    if (e.http === 409) return null; // jogo ainda em direto: não guardar
+    msCache.set(id, { t: Date.now(), none: true }); msDirty = true; // 404 (sem estatísticas) ou erro: tenta de novo mais tarde
+    return null;
+  }
+}
+const quotaInfo = () => quota;
+
+module.exports = { name: 'statsapi', listFixtures, history, toFixture, teamXg, loadXgCache, dumpXgCache, matchStats, loadStatsCache, dumpStatsCache, statsBudgetLeft, quotaInfo };

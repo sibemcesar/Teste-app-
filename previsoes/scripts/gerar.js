@@ -24,7 +24,8 @@ function merge(fresh, old) {
     const started = m.finished || Date.parse(m.startingAt) <= Date.parse(fresh.generatedAt);
     if (o && o.prediction && o.prediction.v === 2 && (!m.prediction || started)) {
       // previsão já registada: congelada (só se atualizam os acertos). Antes do apito, uma previsão nova (modelo mais recente) substitui a antiga.
-      m.prediction = E.rescore(o.prediction, E.toResult(m.score, m.ht));
+      if (!m.extra && o.extra) m.extra = o.extra; // não perder estatísticas já guardadas
+      m.prediction = E.rescore(o.prediction, E.toResult(m.score, m.ht, m.extra));
       m.home.form = o.home.form;
       m.away.form = o.away.form;
       m.preGame = !!o.preGame;
@@ -48,7 +49,8 @@ async function main() {
   // cache do xG por equipa (evita pedidos repetidos à API entre execuções)
   const xgFile = path.join(DATA, 'xg-equipas.json');
   const prov = process.env.STATSAPI_KEY ? require('../lib/providers/statsapi') : null;
-  if (prov) prov.loadXgCache(readJson(xgFile));
+  const stFile = path.join(DATA, 'stats-jogos.json');
+  if (prov) { prov.loadXgCache(readJson(xgFile)); prov.loadStatsCache(readJson(stFile)); }
   // parâmetros aprendidos (se já houver e tiverem passado a validação)
   const modelFile = path.join(DATA, 'modelo.json');
   const prevModel = readJson(modelFile);
@@ -84,6 +86,10 @@ async function main() {
     }
   }
   if (prov) {
+    const sdump = prov.dumpStatsCache();
+    if (sdump && JSON.stringify(sdump) !== JSON.stringify(readJson(stFile))) fs.writeFileSync(stFile, JSON.stringify(sdump) + '\n');
+    const q = prov.quotaInfo();
+    if (q) console.log('Quota mensal TheStatsAPI: restam ' + q.remaining + ' de ' + q.limit + ' pedidos');
     const dump = prov.dumpXgCache();
     if (dump) {
       const keep = Date.now() - 7 * 86400000; // esquece equipas que não aparecem há uma semana

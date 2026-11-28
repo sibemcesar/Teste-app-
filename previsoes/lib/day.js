@@ -30,7 +30,8 @@ async function buildDay(date, old) {
     // previsão congelada: jogo já começado/terminado, ou já calculada com o modelo atual.
     // Jogos que ainda não começaram são recalculados quando o modelo muda (continua a ser antes do apito).
     const op = o && o.prediction;
-    const frozen = !!(op && op.v === 2 && (finished || kick <= Date.now() || (op.rev === E.REV && op.pv === (E.getParams().version || 0))));
+    const moreStats = !!(P.matchStats && op && op.cn === 2 && P.statsBudgetLeft && P.statsBudgetLeft() > 30); // faltavam estatísticas por falta de orçamento
+    const frozen = !!(op && op.v === 2 && (finished || kick <= Date.now() || (op.rev === E.REV && op.pv === (E.getParams().version || 0) && !moreStats)));
     const [hh, ah] = frozen ? [[], []] : await Promise.all([P.history(home.id, date), P.history(away.id, date)]);
     let xs = null; // estatísticas dos jogos (xG da época), se a fonte as tiver
     if (!frozen && !finished && P.teamXg) {
@@ -43,8 +44,32 @@ async function buildDay(date, old) {
     const fa = E.formOf(away.id, before(ah));
     const final = finished ? E.goalsFrom(f) : null;
     const ht = finished ? E.goalsFrom(f, '1ST_HALF') : null;
+    // escanteios e cartões: resultado real (jogos terminados) e forma recente das equipas (jogos por acontecer)
+    let extra, cs = null, incomplete = false;
+    if (finished && P.matchStats) {
+      const ms = await P.matchStats(f.id);
+      if (ms) extra = { c: ms.c, k: ms.k };
+    }
+    if (!frozen && !finished && P.matchStats) {
+      const teamRows = async (teamId, form) => {
+        const C = [], K = [];
+        for (const r of form) {
+          const ms = await P.matchStats(r.id);
+          if (ms === undefined) { incomplete = true; continue; }
+          if (!ms) continue;
+          const i = r.home ? 0 : 1;
+          if (ms.c) C.push({ f: ms.c[i], a: ms.c[1 - i] });
+          if (ms.k) K.push({ f: ms.k[i], a: ms.k[1 - i] });
+        }
+        return { C, K };
+      };
+      const [th, ta] = await Promise.all([teamRows(home.id, fh), teamRows(away.id, fa)]);
+      cs = { C: { h: th.C, a: ta.C }, K: { h: th.K, a: ta.K } };
+    }
     const formStr = (rows) => rows.slice(0, 5).map((r) => (r.gf > r.ga ? 'V' : r.gf === r.ga ? 'E' : 'D'));
 
+    const prediction = frozen ? null : E.buildPrediction(fh, fa, E.toResult(final, ht, extra), f.league && f.league.name, xs, cs);
+    if (prediction) prediction.cn = prediction.cx || prediction.kx ? 1 : incomplete ? 2 : 0; // 1 = com estatísticas, 2 = faltaram (orçamento), 0 = sem estatísticas
     out.push({
       id: f.id,
       league: f.league ? f.league.name : '',
@@ -54,9 +79,10 @@ async function buildDay(date, old) {
       finished,
       score: final,
       ht,
+      ...(extra ? { extra } : {}),
       home: { name: home.name, logo: home.image_path || '', form: formStr(fh) },
       away: { name: away.name, logo: away.image_path || '', form: formStr(fa) },
-      prediction: frozen ? null : E.buildPrediction(fh, fa, E.toResult(final, ht), f.league && f.league.name, xs),
+      prediction,
     });
   }
 

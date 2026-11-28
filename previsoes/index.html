@@ -255,6 +255,16 @@
     if (!jointCache[mid]) { var p = byId[mid].p; jointCache[mid] = window.Engine.joint(p.xg[0], p.xg[1], p.sh || 0.45, p.bs || 0); }
     return jointCache[mid];
   }
+  var xCache = {};
+  function bbX(mid) { // escanteios e cartões (se o jogo os tiver)
+    if (!xCache[mid]) {
+      var p = byId[mid].p, E = window.Engine, X = {};
+      if (p.cx) X.C = E.countJoint(p.cx[0], p.cx[1], 'C');
+      if (p.kx) X.K = E.countJoint(p.kx[0], p.kx[1], 'K');
+      xCache[mid] = X;
+    }
+    return xCache[mid];
+  }
   function optInfo(p, id) {
     for (var i = 0; i < p.groups.length; i++) for (var j = 0; j < p.groups[i].options.length; j++) {
       var o = p.groups[i].options[j]; if (o.id === id) return { label: p.groups[i].label + ': ' + o.label, prob: o.prob };
@@ -266,7 +276,7 @@
   function bbRender(mid) {
     var box = document.querySelector('details.bb[data-mid="' + CSS.escape(String(mid)) + '"] .bbbody'); if (!box || !byId[mid]) return;
     var p = byId[mid].p, m = byId[mid].m, st = bbState(mid), J = bbJoint(mid), E = window.Engine, h = '';
-    if (!st.sug) st.sug = E.comboSuggest(J);
+    if (!st.sug) st.sug = E.comboSuggest(J, 2, bbX(mid));
     if (st.sug.length) h += '<div class="bbh" style="margin-top:2px">Sugestões: seleções que se reforçam entre si, por nível de risco</div>';
     var lastBand = '';
     st.sug.forEach(function (c, i) {
@@ -287,11 +297,12 @@
     if (st.sel.length < 2) {
       h += '<div class="bbr"><p style="margin:0">Escolhe 2 ou mais seleções, de um ou de vários mercados, para ver a probabilidade de acontecerem todas no mesmo jogo.</p></div>';
     } else {
-      var c = E.comboProb(J, st.sel), indep = st.sel.reduce(function (a, id) { var i = optInfo(p, id); return a * (i.prob == null ? 1 : i.prob); }, 1);
+      var c = E.comboProb(J, st.sel, bbX(mid)), indep = st.sel.reduce(function (a, id) { var i = optInfo(p, id); return a * (i.prob == null ? 1 : i.prob); }, 1);
       h += '<div class="bbr">' + (c < 0.0005
         ? '<div class="big">≈ 0%</div><p>Combinação impossível ou quase impossível (há seleções que se excluem).</p>'
         : '<div class="big">' + pct(c) + ' <small style="font-size:13px;color:var(--mut)">odd justa ' + oddOf(c) + '</small></div>' +
           '<p>Se fossem independentes daria ' + pct(indep) + '. A diferença vem de os mercados estarem ligados entre si.</p>') +
+        (st.sel.some(function (id) { return /^(ck|cth|cta|c1|kt|kth|kta|k1):/.test(id); }) && st.sel.some(function (id) { return !/^(ck|cth|cta|c1|kt|kth|kta|k1):/.test(id); }) ? '<p>Escanteios e cartões são tratados como independentes dos golos.</p>' : '') +
         '<p>Calculado a partir da distribuição de golos do modelo. Não são odds da casa: só há valor se a casa pagar mais do que a odd justa.</p></div>';
     }
     box.innerHTML = h;

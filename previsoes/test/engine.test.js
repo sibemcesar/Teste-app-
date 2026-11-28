@@ -190,3 +190,36 @@ console.log('\n' + n + ' testes passaram');
   assert.strictEqual(E.buildPrediction(strong, strong, null, 'L').st, undefined);
   console.log('ok - xG e correção de ambas marcam no motor');
 }
+
+// ---------- escanteios e cartões ----------
+{
+  const rows = (f, a) => Array.from({ length: 6 }, () => ({ f, a }));
+  const cs = { C: { h: rows(6, 4), a: rows(4, 6) }, K: { h: rows(2.2, 1.8), a: rows(1.8, 2.2) } };
+  const pr = E.buildPrediction(strong, weak, null, 'L', null, cs);
+  const grp = (k) => pr.groups.find((g) => g.key === k);
+  assert.ok(grp('ck') && grp('c1') && grp('kt') && grp('k1'), 'mercados de escanteios e cartões presentes');
+  const sum = (k) => grp(k).options.reduce((a, o) => a + o.prob, 0);
+  assert.ok(Math.abs(sum('c1') - 1) < 0.005 && Math.abs(sum('k1') - 1) < 0.005, 'quem tem mais soma 1');
+  const o95 = grp('ck').options.find((o) => o.id === 'ck:o9.5').prob, u95 = grp('ck').options.find((o) => o.id === 'ck:u9.5').prob;
+  assert.ok(Math.abs(o95 + u95 - 1) < 0.003, 'mais + menos = 1 (linha .5)');
+  assert.ok(pr.cx[0] > pr.cx[1], 'a casa, que ganha mais escanteios, tem a média maior');
+  // sem estatísticas suficientes: sem mercados novos
+  assert.ok(!E.buildPrediction(strong, weak, null, 'L', null, { C: { h: rows(6, 4).slice(0, 2), a: rows(4, 6) } }).groups.some((g) => g.key === 'ck'));
+  assert.ok(!E.buildPrediction(strong, weak).groups.some((g) => g.key === 'kt'));
+  // acertos: depois do jogo, com os escanteios e cartões reais
+  const res = E.toResult({ home: 2, away: 1 }, null, { c: [7, 5], k: [2, 3] });
+  assert.strictEqual(E.evaluate('ck:o11.5', res), true); assert.strictEqual(E.evaluate('ck:o12.5', res), false);
+  assert.strictEqual(E.evaluate('c1:1', res), true); assert.strictEqual(E.evaluate('kt:o4.5', res), true);
+  assert.strictEqual(E.evaluate('ck:o9.5', E.toResult({ home: 1, away: 1 })), null, 'sem estatísticas do jogo: null');
+  const rs = E.rescore(pr, res);
+  assert.strictEqual(rs.groups.find((g) => g.key === 'ck').options.find((o) => o.id === 'ck:o11.5').hit, true);
+  // construtor: golos x escanteios x cartões são independentes
+  const x = E.expectedGoals(strong, weak), J = E.joint(x.lh, x.la), X = { C: E.countJoint(pr.cx[0], pr.cx[1], 'C'), K: E.countJoint(pr.kx[0], pr.kx[1], 'K') };
+  const a = E.comboProb(J, ['ou:o2.5']), b = E.comboProb(J, ['ck:o9.5'], X), c = E.comboProb(J, ['kt:o3.5'], X);
+  assert.ok(Math.abs(E.comboProb(J, ['ou:o2.5', 'ck:o9.5', 'kt:o3.5'], X) - a * b * c) < 1e-9);
+  assert.strictEqual(E.comboProb(J, ['ck:o9.5']), null, 'sem distribuição de escanteios: null');
+  const sug = E.comboSuggest(J, 2, X);
+  assert.ok(sug.some((s) => s.band === 'cnt') && sug.every((s) => s.ids.length >= 2));
+  assert.ok(sug.filter((s) => s.band === 'cnt').every((s) => s.ids.every((i) => /^(ck|cth|cta|c1|kt|kth|kta|k1):/.test(i))));
+  console.log('ok - escanteios e cartões: mercados, acertos, construtor independente');
+}
