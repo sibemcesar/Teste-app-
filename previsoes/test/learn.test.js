@@ -46,3 +46,26 @@ const f = Array.from({ length: 6 }, () => ({ gf: 2, ga: 1, ts: 1 }));
 assert.strictEqual(E.buildPrediction(f, f, null, 'L').pv, 3);
 E.setParams(null);
 console.log('ok - parâmetros novos entram no modelo');
+
+// ---------- correção de "ambas marcam" ----------
+{
+  const { fitBtts, bttsRows } = require('../lib/learn');
+  let sd = 5; const rd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  const mkB = (pY, yes, bs) => ({ finished: true, score: yes ? { home: 1, away: 1 } : { home: 0, away: 1 },
+    prediction: { v: 2, bs: bs || 0, groups: [{ key: 'btts', options: [{ id: 'btts:Y', prob: pY }, { id: 'btts:N', prob: 1 - pY }] }] } });
+  // o modelo diz 60% mas só acontece 45%: deve baixar
+  const over = Array.from({ length: 300 }, () => mkB(0.6, rd() < 0.45));
+  let f = fitBtts(bttsRows([{ matches: over }]));
+  assert.ok(f.used && f.shift < -0.1 && f.shift >= -0.8, 'corrige o otimismo: ' + JSON.stringify(f));
+  // modelo calibrado: não mexe
+  const ok = Array.from({ length: 300 }, () => mkB(0.55, rd() < 0.55));
+  f = fitBtts(bttsRows([{ matches: ok }])); assert.ok(!f.used || Math.abs(f.shift) < 0.15, 'calibrado: ' + JSON.stringify(f));
+  // poucos jogos: não aprende
+  assert.strictEqual(fitBtts(bttsRows([{ matches: over.slice(0, 50) }])), null);
+  // se a previsão já levava correção (bs), a análise retira-a antes de reestimar
+  const l0 = Math.log(0.6 / 0.4), tilted = 1 / (1 + Math.exp(-(l0 - 0.3)));
+  assert.ok(Math.abs(bttsRows([{ matches: [mkB(tilted, true, -0.3)] }])[0].l - l0) < 1e-9);
+  const r2 = learn([{ matches: over }], null);
+  assert.strictEqual(r2.status, 'ativo'); assert.ok(r2.params.bttsShift < 0);
+  console.log('ok - correção de ambas marcam: aprende o desvio, ignora o calibrado e poucos jogos');
+}

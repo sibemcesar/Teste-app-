@@ -21,8 +21,9 @@ function merge(fresh, old) {
   const oldById = new Map(((old && old.matches) || []).map((m) => [m.id, m]));
   return fresh.matches.map((m) => {
     const o = oldById.get(m.id);
-    if (o && o.prediction && o.prediction.v === 2) {
-      // previsão já registada: congelada (só se atualizam os acertos)
+    const started = m.finished || Date.parse(m.startingAt) <= Date.parse(fresh.generatedAt);
+    if (o && o.prediction && o.prediction.v === 2 && (!m.prediction || started)) {
+      // previsão já registada: congelada (só se atualizam os acertos). Antes do apito, uma previsão nova (modelo mais recente) substitui a antiga.
       m.prediction = E.rescore(o.prediction, E.toResult(m.score, m.ht));
       m.home.form = o.home.form;
       m.away.form = o.away.form;
@@ -35,7 +36,7 @@ function merge(fresh, old) {
   });
 }
 
-const upToDate = (day) => day.matches.every((m) => !m.prediction || m.prediction.v === 2);
+const upToDate = (day) => day.matches.every((m) => !m.prediction || (m.prediction.v === 2 && (m.finished || m.prediction.rev === E.REV)));
 
 async function main() {
   if (!process.env.STATSAPI_KEY && !process.env.FOOTBALLDATA_TOKEN && !process.env.SPORTMONKS_API_TOKEN) {
@@ -44,6 +45,10 @@ async function main() {
   }
   console.log('Fonte de dados:', process.env.STATSAPI_KEY ? 'TheStatsAPI' : process.env.FOOTBALLDATA_TOKEN ? 'football-data.org' : 'Sportmonks');
   const { buildDay } = require('../lib/day');
+  // cache do xG por equipa (evita pedidos repetidos à API entre execuções)
+  const xgFile = path.join(DATA, 'xg-equipas.json');
+  const prov = process.env.STATSAPI_KEY ? require('../lib/providers/statsapi') : null;
+  if (prov) prov.loadXgCache(readJson(xgFile));
   // parâmetros aprendidos (se já houver e tiverem passado a validação)
   const modelFile = path.join(DATA, 'modelo.json');
   const prevModel = readJson(modelFile);
@@ -76,6 +81,14 @@ async function main() {
     } catch (e) {
       falhas++;
       console.error(date, 'erro:', e.message);
+    }
+  }
+  if (prov) {
+    const dump = prov.dumpXgCache();
+    if (dump) {
+      const keep = Date.now() - 7 * 86400000; // esquece equipas que não aparecem há uma semana
+      for (const k of Object.keys(dump)) if (dump[k].t < keep) delete dump[k];
+      if (JSON.stringify(dump) !== JSON.stringify(readJson(xgFile))) fs.writeFileSync(xgFile, JSON.stringify(dump) + '\n');
     }
   }
   // estatísticas de desempenho (só se mudaram, para não criar commits à toa)

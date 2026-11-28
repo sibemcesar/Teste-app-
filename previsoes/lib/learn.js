@@ -79,7 +79,7 @@ function fit(rows) {
 }
 
 // days: ficheiros de data/. prev: modelo.json anterior (ou null). Devolve o novo conteúdo de modelo.json.
-function learn(days, prev) {
+function learnGoals(days, prev) {
   const rows = rowsFrom(days);
   const base = { games: rows.length, minGames: MIN_GAMES };
   const keep = (reason) => ({ ...base, status: prev && prev.status === 'ativo' ? 'ativo' : 'a-aprender', reason, params: prev && prev.status === 'ativo' ? prev.params : null,
@@ -103,4 +103,50 @@ function learn(days, prev) {
   return { ...base, status: 'ativo', reason: 'Parâmetros aprendidos e validados em jogos que o ajuste não viu.', params, version: same ? prev.version : (prev && prev.version || 0) + 1, report };
 }
 
-module.exports = { learn, rowsFrom, fit, loglik, MIN_GAMES };
+// ---------- correção de "ambas marcam" ----------
+// Se o modelo previu, em média, mais (ou menos) "ambas marcam" do que aconteceu, ajusta as chances em logit.
+// Um só parâmetro: basta um teste de calibração (z) em vez de validação em separado.
+const MIN_BTTS = 100;
+const sig = (x) => 1 / (1 + Math.exp(-x));
+function bttsRows(days) {
+  const rows = [];
+  for (const d of days) for (const m of d.matches || []) {
+    const p = m.prediction;
+    if (!m.finished || !m.score || !p || p.v !== 2) continue;
+    const g = (p.groups || []).find((x) => x.key === 'btts');
+    const y = g && g.options.find((o) => o.id === 'btts:Y');
+    if (!y || !(y.prob > 0.001 && y.prob < 0.999)) continue;
+    const logit = Math.log(y.prob / (1 - y.prob)) - (p.bs || 0); // retira a correção que já tinha sido aplicada
+    rows.push({ l: logit, y: m.score.home > 0 && m.score.away > 0 ? 1 : 0 });
+  }
+  return rows;
+}
+function fitBtts(rows) {
+  const n = rows.length;
+  if (n < MIN_BTTS) return null;
+  const p0 = rows.map((r) => sig(r.l));
+  const z = (rows.reduce((a, r) => a + r.y, 0) - p0.reduce((a, x) => a + x, 0)) / Math.sqrt(p0.reduce((a, x) => a + x * (1 - x), 0));
+  if (!(Math.abs(z) >= 1.64)) return { n, z, shift: 0, used: false };
+  let s = 0;
+  for (let i = 0; i < 25; i++) { // Newton
+    let g = 0, h = 0;
+    for (const r of rows) { const q = sig(r.l + s); g += r.y - q; h -= q * (1 - q); }
+    if (!h) break;
+    s = clamp(s - g / h, -2, 2);
+  }
+  const shift = Math.round(clamp(shrinkTo(s, 0, n, 60), -0.8, 0.8) * 1000) / 1000;
+  return { n, z: Math.round(z * 100) / 100, shift, used: true };
+}
+
+// golos (validação walk-forward) + correção de "ambas marcam"
+function learn(days, prev) {
+  const g = learnGoals(days, prev);
+  const b = fitBtts(bttsRows(days));
+  const params = { ...(g.status === 'ativo' && g.params ? g.params : {}), ...(b && b.used ? { bttsShift: b.shift } : {}) };
+  if (!Object.keys(params).length) return { ...g, btts: b };
+  const same = prev && prev.status === 'ativo' && JSON.stringify(prev.params) === JSON.stringify(params);
+  const reasons = [g.status === 'ativo' ? 'Golos: parâmetros aprendidos e validados.' : null, b && b.used ? 'Ambas marcam: o modelo estava ' + (b.shift < 0 ? 'otimista' : 'pessimista') + ' (z = ' + b.z + ').' : null].filter(Boolean);
+  return { ...g, status: 'ativo', params, version: same ? prev.version : (prev && prev.version || 0) + 1, reason: reasons.join(' '), btts: b };
+}
+
+module.exports = { learn, rowsFrom, fit, loglik, bttsRows, fitBtts, MIN_GAMES };

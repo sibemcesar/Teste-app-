@@ -252,7 +252,7 @@
   }
   function bbState(mid) { return bb[mid] || (bb[mid] = { sel: [], grp: '1x2' }); }
   function bbJoint(mid) {
-    if (!jointCache[mid]) { var p = byId[mid].p; jointCache[mid] = window.Engine.joint(p.xg[0], p.xg[1], p.sh || 0.45); }
+    if (!jointCache[mid]) { var p = byId[mid].p; jointCache[mid] = window.Engine.joint(p.xg[0], p.xg[1], p.sh || 0.45, p.bs || 0); }
     return jointCache[mid];
   }
   function optInfo(p, id) {
@@ -330,6 +330,11 @@
       } else {
         tipHtml += '<div class="conf"><span>Confiança ' + esc(b.confidence) + '</span><span>Golos esperados ' + p.xg[0] + ' – ' + p.xg[1] + '</span>' +
           (cs ? '<span>Resultado mais provável ' + esc(cs.label) + ' (' + pct(cs.prob) + ')</span>' : '') + '</div>';
+        if (p.st) { // estatísticas dos jogos usadas no cálculo (xG por jogo na época: marca / sofre)
+          var f1 = function (x) { return String(x).replace('.', ','); };
+          tipHtml += '<div class="conf"><span>xG por jogo · ' + esc(m.home.name) + ' ' + f1(p.st.h[0]) + ' marca, ' + f1(p.st.h[1]) + ' sofre</span><span>' +
+            esc(m.away.name) + ' ' + f1(p.st.a[0]) + ' marca, ' + f1(p.st.a[1]) + ' sofre</span></div>';
+        }
         var g = groupsHtml(p);
         rows = '<details><summary class="btn">Ver todas as probabilidades (' + g.n + ')</summary>' +
           '<p class="note">Probabilidade · odd justa (1 ÷ probabilidade). A opção mais provável de cada mercado está a negrito.</p>' + g.html +
@@ -399,10 +404,11 @@
     if (!m) return h + '<p style="margin:0">Ainda não há informação. O gerador cria-a na próxima execução.</p></div>';
     var pc = function (x) { return Math.round(x * 100) + '%'; };
     if (m.status === 'ativo' && m.params) {
-      var P = m.params;
+      var P = m.params, parts = [];
+      if (P.homeFactor != null) parts.push('vantagem de casa ' + P.homeFactor + ' (base 1,08), fora ' + P.awayFactor + ' (base 0,93), peso da forma recente ' + pc(P.formWeight) + ', golos na 1.ª parte ' + pc(P.half1Share) + ', média de golos por equipa ' + String(P.leagueAvg).replace('.', ','));
+      if (P.bttsShift) parts.push('"Ambas marcam" corrigido (' + (P.bttsShift < 0 ? 'o modelo estava otimista' : 'o modelo estava pessimista') + ', ajuste ' + String(P.bttsShift).replace('.', ',') + ')');
       h += '<div class="big" style="font-size:18px"><span class="tago">Ativa</span> · versão ' + esc(m.version) + '</div>' +
-        '<p>Aprendeu com ' + m.games + ' jogos. Vantagem de casa ' + P.homeFactor + ' (base 1,08), fora ' + P.awayFactor + ' (base 0,93), ' +
-        'peso da forma recente ' + pc(P.formWeight) + ', golos na 1.ª parte ' + pc(P.half1Share) + ', média de golos por equipa ' + String(P.leagueAvg).replace('.', ',') + '.</p>';
+        '<p>Aprendeu com ' + m.games + ' jogos. ' + esc(parts.join('; ')) + '.</p>';
       if (m.report) h += '<p>Teste em ' + m.report.testGames + ' jogos que o ajuste não viu: previsão melhor em ' + m.report.gainPerGame + ' (log-verosimilhança por jogo; acima de 0 é melhor).</p>';
       h += '<p>Só vale para jogos novos: as previsões já registadas não mudam.</p>';
     } else {

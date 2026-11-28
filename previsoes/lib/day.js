@@ -26,13 +26,21 @@ async function buildDay(date, old) {
     if (!home || !away) continue;
     const kick = E.kickoffTs(f);
     const o = oldById.get(f.id);
-    const frozen = !!(o && o.prediction && o.prediction.v === 2);
+    const finished = E.isFinished(f);
+    // previsão congelada: jogo já começado/terminado, ou já calculada com o modelo atual.
+    // Jogos que ainda não começaram são recalculados quando o modelo muda (continua a ser antes do apito).
+    const op = o && o.prediction;
+    const frozen = !!(op && op.v === 2 && (finished || kick <= Date.now() || (op.rev === E.REV && op.pv === (E.getParams().version || 0))));
     const [hh, ah] = frozen ? [[], []] : await Promise.all([P.history(home.id, date), P.history(away.id, date)]);
+    let xs = null; // estatísticas dos jogos (xG da época), se a fonte as tiver
+    if (!frozen && !finished && P.teamXg) {
+      const [xh, xa] = await Promise.all([P.teamXg(home.id, f.season_id), P.teamXg(away.id, f.season_id)]);
+      if (xh && xa) xs = { h: xh, a: xa };
+    }
     // só jogos anteriores a este (evita "espreitar" o resultado), sem o próprio jogo
     const before = (h) => h.filter((x) => x.id !== f.id && E.kickoffTs(x) < kick);
     const fh = E.formOf(home.id, before(hh));
     const fa = E.formOf(away.id, before(ah));
-    const finished = E.isFinished(f);
     const final = finished ? E.goalsFrom(f) : null;
     const ht = finished ? E.goalsFrom(f, '1ST_HALF') : null;
     const formStr = (rows) => rows.slice(0, 5).map((r) => (r.gf > r.ga ? 'V' : r.gf === r.ga ? 'E' : 'D'));
@@ -48,7 +56,7 @@ async function buildDay(date, old) {
       ht,
       home: { name: home.name, logo: home.image_path || '', form: formStr(fh) },
       away: { name: away.name, logo: away.image_path || '', form: formStr(fa) },
-      prediction: frozen ? null : E.buildPrediction(fh, fa, E.toResult(final, ht), f.league && f.league.name),
+      prediction: frozen ? null : E.buildPrediction(fh, fa, E.toResult(final, ht), f.league && f.league.name, xs),
     });
   }
 

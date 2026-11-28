@@ -14,8 +14,12 @@ const DEFAULTS = Object.freeze({
   formWeight: 0.75, // peso da forma recente (o resto vai para a média da liga)
   half1Share: 0.45, // fração dos golos que acontecem na 1.ª parte
   leagueAvg: 1.35, // média de golos por equipa
+  xgWeight: 0.5, // peso do xG da época (estatísticas dos jogos) face aos golos recentes, quando há xG das duas equipas
+  bttsShift: 0, // correção (em logit) à probabilidade de ambas marcarem, aprendida dos resultados
   leagues: {}, // média própria de algumas ligas: { "Premier League": 1.5 }
 });
+// REV muda quando o modelo muda de forma: previsões de jogos que ainda não começaram são recalculadas.
+const REV = 3;
 let PARAMS = { ...DEFAULTS };
 const setParams = (p) => { PARAMS = { ...DEFAULTS, ...(p || {}), leagues: { ...((p && p.leagues) || {}) } }; };
 const getParams = () => PARAMS;
@@ -73,7 +77,8 @@ function pmf(lambda, max) {
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 
 // Golos esperados de cada equipa (ou null se faltarem dados)
-function expectedGoals(formHome, formAway, league) {
+// xs (opcional) = estatísticas de xG por jogo da época: { h: {f, a, n}, a: {f, a, n} } (f = a favor, a = sofrido, n = jogos com xG)
+function expectedGoals(formHome, formAway, league, xs) {
   if (formHome.length < 3 || formAway.length < 3) return null;
   const wavg = (rows, k) => {
     let s = 0, w = 0;
@@ -84,17 +89,27 @@ function expectedGoals(formHome, formAway, league) {
     });
     return s / w;
   };
-  const bh = (wavg(formHome, 'gf') + wavg(formAway, 'ga')) / 2; // base antes da vantagem de casa
-  const ba = (wavg(formAway, 'gf') + wavg(formHome, 'ga')) / 2;
+  let bh = (wavg(formHome, 'gf') + wavg(formAway, 'ga')) / 2; // base antes da vantagem de casa
+  let ba = (wavg(formAway, 'gf') + wavg(formHome, 'ga')) / 2;
+  // estatísticas dos jogos: mistura o xG da época (mais estável do que os golos) com os golos recentes
+  let xw = 0;
+  if (xs && xs.h && xs.a) {
+    const nmin = Math.min(xs.h.n, xs.a.n);
+    if (nmin >= 4) xw = PARAMS.xgWeight * Math.min(1, nmin / 10);
+  }
+  if (xw > 0) {
+    bh = (1 - xw) * bh + xw * ((xs.h.f + xs.a.a) / 2);
+    ba = (1 - xw) * ba + xw * ((xs.a.f + xs.h.a) / 2);
+  }
   const P = PARAMS, avg = (league && P.leagues[league]) || P.leagueAvg, w = P.formWeight;
   // encolhe para a média: poucas amostras não devem dar previsões extremas
   const lh = clamp(w * bh * P.homeFactor + (1 - w) * avg, 0.3, 3.5);
   const la = clamp(w * ba * P.awayFactor + (1 - w) * avg, 0.3, 3.5);
-  return { lh, la, bh, ba };
+  return { lh, la, bh, ba, xw };
 }
 
 // Distribuição conjunta: lista de {h, a, h1, a1, p} = golos finais e ao intervalo de cada equipa
-function joint(lh, la, share = PARAMS.half1Share) {
+function joint(lh, la, share = PARAMS.half1Share, shift = PARAMS.bttsShift) {
   const A1 = pmf(lh * share, N), B1 = pmf(la * share, N);
   const A2 = pmf(lh * (1 - share), N), B2 = pmf(la * (1 - share), N);
   const J = [];
@@ -112,6 +127,12 @@ function joint(lh, la, share = PARAMS.half1Share) {
     }
   }
   for (const r of J) r.p /= tot;
+  if (shift) { // corrige a probabilidade de ambas marcarem (multiplica as suas chances por e^shift), mantendo o resto coerente
+    const f = Math.exp(shift);
+    let t2 = 0;
+    for (const r of J) { if (r.h > 0 && r.a > 0) r.p *= f; t2 += r.p; }
+    for (const r of J) r.p /= t2;
+  }
   return J;
 }
 
@@ -251,8 +272,8 @@ function confidence(prob) {
   return prob >= 0.65 ? 'alta' : prob >= 0.55 ? 'média' : 'baixa';
 }
 
-function buildPrediction(formHome, formAway, result, league) {
-  const xg = expectedGoals(formHome, formAway, league);
+function buildPrediction(formHome, formAway, result, league, xs) {
+  const xg = expectedGoals(formHome, formAway, league, xs);
   if (!xg) return null;
   const J = joint(xg.lh, xg.la);
 
@@ -289,7 +310,11 @@ function buildPrediction(formHome, formAway, result, league) {
   best.confidence = confidence(best.prob);
 
   // base = forma bruta (sem vantagem de casa) e pv = versão dos parâmetros: servem para a aprendizagem (lib/learn.js)
-  const pred = { v: 2, xg: [Math.round(xg.lh * 100) / 100, Math.round(xg.la * 100) / 100], base: [Math.round(xg.bh * 1000) / 1000, Math.round(xg.ba * 1000) / 1000], pv: PARAMS.version || 0, sh: PARAMS.half1Share, groups, best };
+  const pred = { v: 2, xg: [Math.round(xg.lh * 100) / 100, Math.round(xg.la * 100) / 100], base: [Math.round(xg.bh * 1000) / 1000, Math.round(xg.ba * 1000) / 1000], pv: PARAMS.version || 0, rev: REV, sh: PARAMS.half1Share, bs: PARAMS.bttsShift || 0, groups, best };
+  if (xg.xw > 0) { // estatísticas usadas (xG por jogo: a favor / sofrido) e o peso que tiveram
+    const r2 = (x) => Math.round(x * 100) / 100;
+    pred.st = { h: [r2(xs.h.f), r2(xs.h.a)], a: [r2(xs.a.f), r2(xs.a.a)], w: r2(xg.xw) };
+  }
   return rescore(pred, result);
 }
 
@@ -355,7 +380,7 @@ function comboSuggest(J, size, top = 3, maxProb = 0.9) {
 }
 
 const API = {
-  DEFAULTS, setParams, getParams,
+  DEFAULTS, REV, setParams, getParams,
   goalsFrom, sides, isFinished, kickoffTs, formOf, expectedGoals, joint,
   evaluate, toResult, buildPrediction, rescore, confidence, GROUPS, comboProb, comboSuggest,
 };

@@ -60,6 +60,7 @@ function toFixture(m, names, ht) {
   const team = (t, location) => ({ id: t.id, name: t.name, image_path: '', meta: { location } });
   return {
     id: m.id,
+    season_id: m.season_id || null,
     starting_at: String(m.utc_date || '').replace('T', ' ').replace(/\.\d+Z$|Z$/, ''),
     state: { short_name: finished ? 'FT' : String(m.status || '').toUpperCase() },
     league: { name: (names && names.get(m.competition_id)) || m.competition_name || '', cc: ccs.get(m.competition_id) || '' },
@@ -124,4 +125,28 @@ async function history(teamId, date) {
   return histCache.get(k);
 }
 
-module.exports = { name: 'statsapi', listFixtures, history, toFixture };
+// xG por jogo de uma equipa na época (1 pedido por equipa). Guarda em cache 24 h, também entre execuções (data/xg-equipas.json).
+const XG_TTL = 24 * 3600 * 1000;
+const xgCache = new Map(); // "equipa|época" → { t, f, a, n } ou { t, none: true }
+let xgDirty = false;
+const loadXgCache = (obj) => { for (const [k, v] of Object.entries(obj || {})) xgCache.set(k, v); };
+const dumpXgCache = () => (xgDirty ? Object.fromEntries(xgCache) : null);
+async function teamXg(teamId, seasonId) {
+  if (!teamId || !seasonId) return null;
+  const k = teamId + '|' + seasonId, c = xgCache.get(k);
+  if (c && Date.now() - c.t < XG_TTL) return c.none ? null : c;
+  try {
+    const j = await get('/football/teams/' + teamId + '/stats', { season_id: seasonId });
+    const d = (j && j.data) || j || {};
+    const n = Number(d.xg_matches), f = Number(d.expected_goals_for), a = Number(d.expected_goals_against);
+    const v = n > 0 && isFinite(f) && isFinite(a) ? { t: Date.now(), f: Math.round((f / n) * 1000) / 1000, a: Math.round((a / n) * 1000) / 1000, n } : { t: Date.now(), none: true };
+    xgCache.set(k, v); xgDirty = true;
+    return v.none ? null : v;
+  } catch (e) {
+    if (e.status === 429) throw e; // quota/limite: deixa falhar o dia, não escondas
+    xgCache.set(k, { t: Date.now() - XG_TTL + 3600 * 1000, none: true }); xgDirty = true; // sem xG: tenta de novo daqui a 1 hora
+    return null;
+  }
+}
+
+module.exports = { name: 'statsapi', listFixtures, history, toFixture, teamXg, loadXgCache, dumpXgCache };

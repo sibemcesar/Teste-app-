@@ -50,6 +50,14 @@ Escrevi a integração a partir da documentação da Sportmonks, mas só a teste
 - Que a API devolve `participants`, `scores` e `state`. Se algum nome for diferente, ajusta `goalsFrom` em `lib/engine.js`.
 - Se o workflow falhar, abre o registo da execução em Actions: a mensagem de erro diz o que foi.
 
+## Estatísticas dos jogos (xG) e "ambas marcam"
+
+Com a TheStatsAPI, o modelo mistura o **xG da época** de cada equipa (golos esperados a favor e sofridos por jogo, 1 pedido por equipa, em cache 24 h em `data/xg-equipas.json`) com os golos recentes. O peso é `xgWeight` (0,5), reduzido quando há poucos jogos com xG; com menos de 4 jogos o xG é ignorado. O cartão mostra o xG usado.
+
+O modelo exagerava "ambas marcam". A aprendizagem mede a diferença entre o previsto e o que aconteceu (teste z, ≥ 100 jogos) e aplica uma correção em logit (`bttsShift`) a toda a distribuição, por isso o construtor de aposta fica coerente.
+
+Previsões de jogos que **ainda não começaram** são recalculadas quando o modelo muda (`REV` em `lib/engine.js`), mas ficam sempre congeladas a partir do apito.
+
 ## Construtor de aposta
 
 Em cada jogo por acontecer há o botão "Construtor de aposta". Escolhes seleções de vários mercados e o site calcula a probabilidade de acontecerem todas no mesmo jogo, com a mesma distribuição de golos do modelo (o site carrega `lib/engine.js` e recria-a a partir do xG guardado). Por isso respeita as ligações entre mercados, ao contrário de multiplicar probabilidades. Também sugere as combinações mais prováveis com 2 e 3 seleções, sem redundâncias. A odd é "justa", não a da casa.

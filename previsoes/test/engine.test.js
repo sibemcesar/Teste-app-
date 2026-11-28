@@ -166,3 +166,21 @@ console.log('\n' + n + ' testes passaram');
   assert.ok(typeof pr.sh === 'number' && pr.sh > 0, 'a previsão guarda a divisão por partes');
   console.log('ok - construtor de aposta: correlação, incompatíveis, implicações, sugestões');
 }
+
+// ---------- estatísticas (xG) e correção de ambas marcam ----------
+{
+  const bt = (J) => E.comboProb(J, ['btts:Y']);
+  const x0 = E.expectedGoals(strong, weak);
+  const J0 = E.joint(x0.lh, x0.la, 0.45, 0), J1 = E.joint(x0.lh, x0.la, 0.45, -0.4);
+  assert.ok(bt(J1) < bt(J0), 'shift negativo baixa ambas marcam');
+  assert.ok(Math.abs(J1.reduce((a, r) => a + r.p, 0) - 1) < 1e-9, 'continua a somar 1');
+  // com xG a dizer que a equipa da casa é muito mais ofensiva, sobe o golo esperado dela
+  const xs = { h: { f: 2.6, a: 0.6, n: 12 }, a: { f: 0.7, a: 2.0, n: 12 } };
+  const a = E.expectedGoals(strong, strong, 'L'), b = E.expectedGoals(strong, strong, 'L', xs);
+  assert.ok(b.lh > a.lh && b.xw === 0.5, 'o xG entra no cálculo');
+  assert.strictEqual(E.expectedGoals(strong, strong, 'L', { h: { f: 3, a: 3, n: 2 }, a: { f: 3, a: 3, n: 2 } }).xw, 0, 'poucos jogos com xG: ignora');
+  const pr = E.buildPrediction(strong, strong, null, 'L', xs);
+  assert.deepStrictEqual(pr.st.h, [2.6, 0.6]); assert.strictEqual(pr.rev, E.REV);
+  assert.strictEqual(E.buildPrediction(strong, strong, null, 'L').st, undefined);
+  console.log('ok - xG e correção de ambas marcam no motor');
+}
