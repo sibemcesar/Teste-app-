@@ -9,7 +9,7 @@ global.fetch = async (url, opt) => {
   calls.push(url);
   assert.strictEqual(opt.headers.Authorization, 'Bearer k');
   const u = new URL(url); const q = u.searchParams; let body;
-  if (u.pathname.endsWith('/competitions')) body = { data: [{ id: 'comp_1', name: 'Premier League', country_code: 'GB', subdivision_code: 'GB-ENG' }, { id: 'comp_2', name: 'Liga Obscura' }], meta: { total_pages: 1 } };
+  if (u.pathname.endsWith('/competitions')) body = { data: [{ id: 'comp_1', name: 'Premier League', country_code: 'GB', subdivision_code: 'GB-ENG' }, { id: 'comp_2', name: 'Liga Obscura' }, { id: 'comp_3', name: 'LaLiga', country_code: 'ES' }, { id: 'comp_4', name: 'Primera División', country_code: 'ES' }, { id: 'comp_5', name: 'Primera División', country_code: 'AR' }], meta: { total_pages: 1 } };
   else if (/\/teams\/[^/]+\/stats$/.test(u.pathname)) body = { data: { team_id: 'x', season_id: q.get('season_id'), xg_matches: 10, expected_goals_for: 20, expected_goals_against: 12 } };
   else if (/\/matches\/[^/]+\/stats$/.test(u.pathname)) body = { data: { overview: { corner_kicks: { all: { home: 6, away: 4 } }, yellow_cards: { all: { home: 2, away: 1 } }, red_cards: { all: { home: 0, away: 1 } } } } };
   else if (/\/matches\/mt_f1$/.test(u.pathname)) body = { data: { id: 'mt_f1', score: { half_time_home: 1, half_time_away: 0 } } };
@@ -24,6 +24,8 @@ global.fetch = async (url, opt) => {
 (async () => {
   const E = require('../lib/engine');
   const { buildDay } = require('../lib/day');
+  const A = require('../lib/providers/statsapi');
+  const names = await (async () => new Map([['comp_1', 'Premier League'], ['comp_2', 'Liga Obscura'], ['comp_3', 'LaLiga'], ['comp_4', 'Primera División'], ['comp_5', 'Primera División']]))();
   const day = await buildDay('2026-11-25');
   assert.strictEqual(day.matches.length, 2, 'filtra ligas fora da lista');
   const [fin, nxt] = day.matches;

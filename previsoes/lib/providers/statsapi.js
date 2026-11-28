@@ -6,7 +6,9 @@
 //  - o histórico de cada equipa é a mesma lista filtrada por team_id (em cache durante a execução).
 const BASE = 'https://api.thestatsapi.com/api';
 // Filtro por nome de competição (substring, sem maiúsculas). STATS_COMPETITIONS substitui; "*" = todas.
-const DEFAULT_COMPS = 'Premier League,Championship,Bundesliga,Serie A,Serie B,La Liga,Ligue 1,Eredivisie,Primeira Liga,Champions League,National League';
+// Um item pode levar o país à frente (ES:laliga = só se a competição for de Espanha). A comparação ignora espaços e acentos.
+const DEFAULT_COMPS = 'Premier League,Championship,Bundesliga,Serie A,Serie B,La Liga,ES:Primera Division,Ligue 1,Eredivisie,Primeira Liga,Champions League,National League';
+const squash = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '');
 const DAY = 86400000;
 let quota = null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -79,17 +81,25 @@ const ccs = new Map(); // id da competição → código do país (ex.: DE, GB-E
 function competitions() {
   if (!compsPromise) {
     compsPromise = getAll('/football/competitions', null, 10)
-      .then((rows) => { rows.forEach((c) => { const cc = c.subdivision_code || c.country_code; if (cc) ccs.set(c.id, String(cc).toUpperCase()); }); return new Map(rows.map((c) => [c.id, c.name])); })
+      .then((rows) => { rows.forEach((c) => { const cc = c.subdivision_code || c.country_code; if (cc) ccs.set(c.id, String(cc).toUpperCase()); }); 
+        const es = rows.filter((c) => /^ES/.test(String(c.subdivision_code || c.country_code || ''))).map((c) => c.name);
+        console.log('TheStatsAPI: ' + rows.length + ' competições. Espanha: ' + (es.join(' | ') || '(nenhuma com país ES)'));
+        return new Map(rows.map((c) => [c.id, c.name])); })
       .catch((e) => { console.warn('TheStatsAPI: sem nomes de ligas (' + e.message + ')'); return new Map(); });
   }
   return compsPromise;
 }
 
 function allowed(names, id) {
-  const cfg = (process.env.STATS_COMPETITIONS || DEFAULT_COMPS).split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const cfg = (process.env.STATS_COMPETITIONS || DEFAULT_COMPS).split(',').map((s) => s.trim()).filter(Boolean);
   if (cfg.includes('*') || !names.size) return true; // sem nomes não dá para filtrar
-  const name = String(names.get(id) || '').toLowerCase();
-  return cfg.some((c) => c === String(id).toLowerCase() || (name && name.includes(c)));
+  const name = squash(names.get(id)), cc = ccs.get(id) || '';
+  return cfg.some((c) => {
+    if (c.toLowerCase() === String(id).toLowerCase()) return true;
+    const m = /^([A-Za-z]{2}(?:-[A-Za-z]{3})?):(.+)$/.exec(c); // país:nome
+    if (m) return cc.toUpperCase().startsWith(m[1].toUpperCase()) && name.includes(squash(m[2]));
+    return !!name && name.includes(squash(c));
+  });
 }
 
 // old: Map id → jogo já guardado (para não repetir pedidos de jogos terminados)
