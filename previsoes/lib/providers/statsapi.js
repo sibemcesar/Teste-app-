@@ -14,10 +14,10 @@ const DEFAULT_COMPS = [
   '=ES:LaLiga', '=ES:Copa del Rey', '=DE:Bundesliga', '=DE:2. Bundesliga', '=DE:DFB Pokal', '=IT:Serie A', '=IT:Serie B', '=IT:Coppa Italia',
   '=FR:Ligue 1', '=NL:Eredivisie', '=PT:Liga Portugal Betclic', '=PT:Taça de Portugal',
   // outras ligas muito seguidas
-  '=BR:Brasileirão Série A', '=BE:Pro League', '=TR:Trendyol Süper Lig', '=GB-SCT:Scottish Premiership', '=SA:Saudi Pro League', '=US:MLS', 'MX:Liga MX', '=AR:Liga Profesional de Fútbol',
+  '=BR:Brasileirão Série A', '=BE:Pro League', '=TR:Trendyol Süper Lig', '=GB-SCT:Scottish Premiership', '=SA:Saudi Pro League', "=SA:King's Cup", '=US:MLS', 'MX:Liga MX', '=AR:Liga Profesional de Fútbol',
   // clubes: continentais
   '=UEFA Champions League', '=UEFA Europa League', '=UEFA Conference League', '=UEFA Super Cup', '=CONMEBOL Libertadores', '=CONMEBOL Sudamericana',
-  '=CAF Champions League', '=CAF Confederations Cup', '=Club World Championship', '=FIFA Intercontinental Cup',
+  '=CAF Champions League', '=CAF Confederations Cup', '=AFC Champions League Elite', '=Club World Championship', '=FIFA Intercontinental Cup',
   // seleções
   '=FIFA World Cup', 'World Championship Qual.', '=Africa Cup of Nations', '=Africa Cup of Nations Qual.', '=EURO', '=EURO, Qualification', '=Copa América', '=UEFA Nations League', '=International Friendly Games',
 ];
