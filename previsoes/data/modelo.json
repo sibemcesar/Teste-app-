@@ -1,1 +1,1 @@
-{"trainedAt":"2026-11-28T02:51:02.194Z","games":132,"minGames":150,"status":"a-aprender","reason":"Poucos jogos terminados para aprender com segurança.","params":null,"version":0,"report":null}
+{"trainedAt":"2026-11-28T06:52:08.997Z","games":134,"minGames":150,"status":"ativo","reason":"Ambas marcam: o modelo estava otimista (z = -2.47).","params":{"bttsShift":-0.298},"version":1,"report":null,"btts":{"n":134,"z":-2.47,"shift":-0.298,"used":true}}
