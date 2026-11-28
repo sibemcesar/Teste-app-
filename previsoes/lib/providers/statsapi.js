@@ -84,6 +84,7 @@ function competitions() {
       .then((rows) => { rows.forEach((c) => { const cc = c.subdivision_code || c.country_code; if (cc) ccs.set(c.id, String(cc).toUpperCase()); }); 
         const es = rows.filter((c) => /^ES/.test(String(c.subdivision_code || c.country_code || ''))).map((c) => c.name);
         console.log('TheStatsAPI: ' + rows.length + ' competições. Espanha: ' + (es.join(' | ') || '(nenhuma com país ES)'));
+        console.log('COMPETIÇÕES: ' + rows.map((c) => (c.subdivision_code || c.country_code || '--') + ':' + c.name).join(' ; '));
         return new Map(rows.map((c) => [c.id, c.name])); })
       .catch((e) => { console.warn('TheStatsAPI: sem nomes de ligas (' + e.message + ')'); return new Map(); });
   }
